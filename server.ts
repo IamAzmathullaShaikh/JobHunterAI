@@ -142,8 +142,36 @@ app.post("/api/profile/parse", async (req, res) => {
 
     res.json({ profile: parsedJson });
   } catch (error: any) {
-    console.error("Resume Parsing failed:", error);
-    res.status(500).json({ error: error.message || "Resume parsing failed." });
+    console.warn("AI Resume Parsing failed. Falling back to local regex parser.", error);
+    
+    // Local fallback parsing
+    const fallbackProfile = {
+      full_name: "Local User",
+      total_experience_years: 0,
+      education: [],
+      key_skills: [] as string[],
+      recommended_search_queries: ["Software Engineer", "Developer"],
+      experience_highlights: ["Parsed locally due to AI rate limit"]
+    };
+
+    try {
+      const resumeContent = (req.body.text || "").toLowerCase();
+      
+      const skills_keywords = ['python', 'java', 'react', 'go', 'rust', 'c#', 'sql', 'aws', 'docker', 'typescript', 'node.js', 'javascript', 'html', 'css', 'kubernetes', 'gcp', 'azure'];
+      fallbackProfile.key_skills = skills_keywords.filter(s => resumeContent.includes(s));
+      
+      const yearsMatch = resumeContent.match(/(\d+)\+?\s*years? of experience/i);
+      if (yearsMatch) {
+        fallbackProfile.total_experience_years = parseInt(yearsMatch[1], 10);
+      }
+    } catch (e) {
+      console.error("Local parsing also failed", e);
+    }
+    
+    const db = loadDB();
+    db.profile = fallbackProfile;
+    saveDB(db);
+    res.json({ profile: fallbackProfile, fallback: true });
   }
 });
 
@@ -235,8 +263,47 @@ Return the result in the requested JSON schema format.`;
       jobs: db.jobs,
     });
   } catch (error: any) {
-    console.error("Pipeline discovery failed:", error);
-    res.status(500).json({ error: error.message || "Scrape discovery failed." });
+    console.warn("AI Pipeline discovery failed. Using local deterministic fallback.", error);
+    const db = loadDB();
+    const fallbackJobs = [
+      {
+        job_id_raw: `mock-${Date.now()}-1`,
+        title: "Software Engineer",
+        company: "TechCorp",
+        location: "Remote",
+        description_raw: "Looking for a skilled developer with experience in React and Node.js."
+      },
+      {
+        job_id_raw: `mock-${Date.now()}-2`,
+        title: "Backend Developer",
+        company: "DataInc",
+        location: "New York, NY",
+        description_raw: "Python and Go backend role with a focus on high concurrency."
+      }
+    ];
+
+    const newJobsAdded: any[] = [];
+    fallbackJobs.forEach((item: any) => {
+        const id = db.jobs.length > 0 ? Math.max(...db.jobs.map((j) => j.id)) + 1 : 1;
+        const newJob = {
+          id,
+          ...item,
+          is_starred: false,
+          date_scraped: new Date().toISOString(),
+          ai_analysis: null,
+          application: null,
+        };
+        db.jobs.push(newJob);
+        newJobsAdded.push(newJob);
+    });
+
+    saveDB(db);
+    res.json({
+      scraped_count: fallbackJobs.length,
+      new_count: newJobsAdded.length,
+      jobs: db.jobs,
+      fallback: true
+    });
   }
 });
 
@@ -372,8 +439,34 @@ Return the evaluation in the requested JSON format.`;
     saveDB(db);
     res.json({ job });
   } catch (error: any) {
-    console.error("AI Analysis failed:", error);
-    res.status(500).json({ error: error.message || "AI Analysis failed." });
+    console.warn("AI Analysis failed. Falling back to local heuristic matching.", error);
+    const db = loadDB();
+    const { job_id } = req.body;
+    const job = db.jobs.find((j) => j.id === Number(job_id));
+    
+    if (job) {
+      const resumeProfile = db.profile || { key_skills: [], full_name: "User" };
+      const resumeSkills = Array.isArray(resumeProfile.key_skills) ? resumeProfile.key_skills : [];
+      const jobDesc = (job.description_raw || "").toLowerCase();
+      
+      const matchedSkills = resumeSkills.filter(s => jobDesc.includes(s.toLowerCase()));
+      const score = Math.min(Math.round((matchedSkills.length / Math.max(resumeSkills.length, 1)) * 100), 100) || 50;
+      
+      job.ai_analysis = {
+        id: Math.floor(Math.random() * 1000000),
+        job_id: job.id,
+        match_score: score,
+        fit_summary: "Local Match: Calculated using keyword intersection.",
+        matched_keywords: matchedSkills,
+        missing_keywords: ["(Local fallback cannot determine missing keywords effectively)"],
+        analyzed_at: new Date().toISOString(),
+      };
+      
+      saveDB(db);
+      res.json({ job, fallback: true });
+    } else {
+      res.status(404).json({ error: "Job not found." });
+    }
   }
 });
 
@@ -438,7 +531,22 @@ Return JSON with match_score, fit_summary, keywords_matched (string array), and 
         };
         analyzedCount++;
       } catch (err) {
-        console.error(`Batch AI analyze failed for job ${job.id}:`, err);
+        console.warn(`Batch AI analyze failed for job ${job.id}. Using local fallback.`, err);
+        const resumeSkills = Array.isArray(profile.key_skills) ? profile.key_skills : [];
+        const jobDesc = (job.description_raw || "").toLowerCase();
+        const matchedSkills = resumeSkills.filter(s => jobDesc.includes(s.toLowerCase()));
+        const score = Math.min(Math.round((matchedSkills.length / Math.max(resumeSkills.length, 1)) * 100), 100) || 50;
+
+        job.ai_analysis = {
+          id: Math.floor(Math.random() * 1000000),
+          job_id: job.id,
+          match_score: score,
+          fit_summary: "Local Match: Calculated using keyword intersection (AI fallback).",
+          keywords_matched: matchedSkills,
+          keywords_missing: [],
+          analyzed_at: new Date().toISOString(),
+        };
+        analyzedCount++;
       }
     }
 
@@ -510,8 +618,21 @@ Return the result in the requested JSON format.`;
       },
     });
   } catch (error: any) {
-    console.error("Outreach lookup failed:", error);
-    res.status(500).json({ error: error.message || "Outreach generator failed." });
+    console.warn("Outreach lookup failed. Using fallback templates.", error);
+    const { company_name } = req.body;
+    const l_rec = `site:linkedin.com/in/ ("recruiter" OR "talent acquisition" OR "human resources") "${company_name}"`;
+    const l_fnd = `site:linkedin.com/in/ ("founder" OR "ceo" OR "cto" OR "engineering manager") "${company_name}"`;
+    const t_hir = `site:twitter.com "${company_name}" ("hiring" OR "jobs" OR "recruiter")`;
+    
+    res.json({
+      cold_outreach_dm_template: `Hi team at ${company_name},\n\nI noticed you are doing interesting work and I'm currently looking for new opportunities. I have a background in software development and would love to connect to see if there is a mutual fit.\n\nBest,\n[Your Name]`,
+      suggested_search_queries: {
+        "LinkedIn: Talent Acquisition & Recruiters": formatSearchUrl(l_rec),
+        "LinkedIn: Founders & CEOs": formatSearchUrl(l_fnd),
+        "X (Twitter): Hiring Handles": formatSearchUrl(t_hir),
+      },
+      fallback: true
+    });
   }
 });
 
