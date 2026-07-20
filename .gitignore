@@ -1,0 +1,34 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python Cache & System Artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.history/
+.vscode/
+.idea/
+
+# Local Configuration & Secrets
+.env
+*.env
+
+# Application Data & Databases
+*.db
+*.sqlite3
+jobhunter.db
+
+# Platform Operation Logs
+logs/
+*.log
+.venv/
+*.db
+__pycache__/
+.pytest_cache/
+*.log
+.env
+.claude/

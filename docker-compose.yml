@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  jobhunter-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jobhunter-ai-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/db.json
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - jobhunter-data:/app/data
+    env_file:
+      - .env
+
+volumes:
+  jobhunter-data:
