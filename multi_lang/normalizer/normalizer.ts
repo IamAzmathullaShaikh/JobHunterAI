@@ -5,8 +5,9 @@ app.use(express.json());
 
 app.post('/normalize', (req, res) => {
     const jobs = req.body.map((j: any) => ({
-        title: j.raw_title.toUpperCase(),
-        company: j.raw_company.toUpperCase()
+        title: (j.raw_title || '').trim(),
+        company: (j.raw_company || '').trim(),
+        description: (j.raw_description || '').trim().toLowerCase()
     }));
     res.json(jobs);
 });
