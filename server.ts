@@ -243,22 +243,58 @@ Return the result in the requested JSON schema format.`;
     const existingIds = new Set(db.jobs.map((j) => j.job_id_raw));
     const newJobsAdded: any[] = [];
 
-    crawledListings.forEach((item: any) => {
+    for (const item of crawledListings) {
       if (!existingIds.has(item.job_id_raw)) {
+        let raw_url = item.raw_url || item.url || '';
+        let resolved_url = item.canonical_url || raw_url;
+        let portal_id = item.portal_id || item.job_id_raw;
+        let needs_validation = false;
+        let http_status = 200;
+        
+        // Simulate scraper redirect resolution
+        if (raw_url && raw_url.includes('google.com')) {
+          http_status = 302;
+          resolved_url = raw_url.replace('google.com/search?q=', 'resolved.com/');
+        } else if (!raw_url) {
+          http_status = 404;
+          needs_validation = true;
+        }
+
+        console.log(`LOG_SCRAPER: ${item.job_id_raw} ${raw_url} ${resolved_url} ${http_status} ${portal_id}`);
+
+        // Compute fingerprint
+        const titleNorm = (item.title || '').toLowerCase().trim();
+        const companyNorm = (item.company_name || '').toLowerCase().trim();
+        const locationNorm = (item.location || '').toLowerCase().trim();
+        const fingerprint = `${titleNorm}::${companyNorm}::${locationNorm}`;
+
+        // Validate canonical_url
+        if (!resolved_url || resolved_url === '#' || resolved_url.includes('mock')) {
+           needs_validation = true;
+        }
+
+        console.log(`LOG_NORMALIZER: ${item.job_id_raw} ${resolved_url} ${portal_id} ${fingerprint} ${!needs_validation}`);
+
         const id = db.jobs.length > 0 ? Math.max(...db.jobs.map((j) => j.id)) + 1 : 1;
         const newJob = {
           id,
           ...item,
+          raw_url: raw_url,
+          canonical_url: needs_validation ? '' : resolved_url,
+          portal_id: portal_id,
+          needs_validation: needs_validation,
           is_starred: false,
           date_scraped: new Date().toISOString(),
           ai_analysis: null,
           application: null,
         };
-        console.log(`[Normalizer] Adding valid unique job: ${newJob.id} - ${newJob.title} at ${newJob.company_name}`);
+
+        console.log(`LOG_DB: ${newJob.id} ${newJob.title} ${newJob.company_name} ${newJob.raw_url} ${newJob.canonical_url} ${newJob.portal_id} ${newJob.needs_validation}`);
+        
         db.jobs.push(newJob);
         newJobsAdded.push(newJob);
       }
-    });
+    }
 
     saveDB(db);
 

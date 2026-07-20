@@ -21,6 +21,7 @@ export interface JobListing {
   raw_url?: string;
   canonical_url?: string;
   portal_id?: string;
+  needs_validation?: boolean;
   description_raw: string;
   description_clean?: string;
   salary_raw?: string;
