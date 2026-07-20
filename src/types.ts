@@ -18,6 +18,9 @@ export interface JobListing {
   job_type: "Full-Time" | "Internship" | "Apprenticeship" | string;
   source: string;
   url: string;
+  raw_url?: string;
+  canonical_url?: string;
+  portal_id?: string;
   description_raw: string;
   description_clean?: string;
   salary_raw?: string;

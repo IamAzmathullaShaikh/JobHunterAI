@@ -189,7 +189,7 @@ Based on this request and the optional candidate profile below:
 ${candidate_context || "No candidate profile uploaded yet."}
 
 Generate 10 highly realistic, detailed job listing records that would be found across 9 popular platforms: LinkedIn, Indeed, Naukri, Foundit, Glassdoor, Google Jobs, Apify Cloud, Internshala, and YC Jobs.
-Ensure each generated job listing has an external unique job ID, highly realistic company name, real title, description, application URL (mock), and specific source (randomly distribute sources across the 9 platforms).
+Ensure each generated job listing has an external unique job ID (portal_id), highly realistic company name, real title, description, application URL (mock this as canonical_url), a raw_url (the original scraped link), and specific source (randomly distribute sources across the 9 platforms).
 Also specify workplace type (Remote, Hybrid, Onsite) and some realistic salary ranges (min, max, currency, raw string).
 Return the result in the requested JSON schema format.`;
 
@@ -211,6 +211,9 @@ Return the result in the requested JSON schema format.`;
               job_type: { type: Type.STRING }, // Full-Time, Internship, Apprenticeship
               source: { type: Type.STRING }, // LinkedIn, Indeed, etc.
               url: { type: Type.STRING },
+              raw_url: { type: Type.STRING },
+              canonical_url: { type: Type.STRING },
+              portal_id: { type: Type.STRING },
               description_raw: { type: Type.STRING },
               salary_min: { type: Type.NUMBER },
               salary_max: { type: Type.NUMBER },
@@ -270,6 +273,9 @@ Return the result in the requested JSON schema format.`;
     const fallbackJobs = [
       {
         job_id_raw: `mock-${Date.now()}-1`,
+        portal_id: "TC-01",
+        raw_url: "https://techcorp.com/jobs/1?source=test",
+        canonical_url: "https://techcorp.com/jobs/1",
         title: "Software Engineer",
         company_name: "TechCorp",
         location: "Remote",
@@ -281,6 +287,9 @@ Return the result in the requested JSON schema format.`;
       },
       {
         job_id_raw: `mock-${Date.now()}-2`,
+        portal_id: "DI-02",
+        raw_url: "https://datainc.com/careers/2?source=test",
+        canonical_url: "https://datainc.com/careers/2",
         title: "Backend Developer",
         company_name: "DataInc",
         location: "New York, NY",
@@ -656,7 +665,7 @@ app.post("/api/jobs/purge", (req, res) => {
   const seenKeys = new Set<string>();
 
   db.jobs.forEach((j) => {
-    const key = `${(j.title || '').toLowerCase().trim()}::${(j.company_name || '').toLowerCase().trim()}::${(j.location || '').toLowerCase().trim()}`;
+    const key = `${(j.title || '').toLowerCase().trim()}::${(j.company_name || '').toLowerCase().trim()}::${(j.location || '').toLowerCase().trim()}::${(j.portal_id || '').toLowerCase().trim()}`;
     if (j.application) {
       // Always keep actively tracked jobs
       uniqueTrackedOrFirst.push(j);

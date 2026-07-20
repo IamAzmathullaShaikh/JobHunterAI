@@ -1,170 +1,76 @@
-# JobHunterAI 🕵️‍♂️💼
+# JobHunterAI
 
-Welcome to **JobHunterAI**, a fully modular, multi-language system designed for intelligent resume parsing, automated job matching, and comprehensive job tracking. 
+JobHunterAI is an automated, local-first job tracking and discovery application. It helps you find relevant jobs, match your resume against them, and track your applications in a streamlined Kanban board. The system is designed to run locally, ensuring your data remains yours, with optional AI capabilities to enhance your job search.
 
-## Project Intention
+## Quick Start
 
-JobHunterAI was built with a strict **local-first, AI-optional** design philosophy. The core system relies entirely on deterministic, rule-based logic—such as regular expressions, keyword dictionaries, and fuzzy matching—to handle the bulk of its operations. 
+### 1. Prerequisites
+- **Node.js**: (v18 or higher)
+- **Git**: to clone the repository
 
-We believe that core functionality shouldn't be gated behind third-party AI APIs or rate limits. External AI models (like OpenRouter, Groq, or Gemini) are treated strictly as **optional enhancements** for nuanced tasks like semantic equivalence scoring. If API keys are missing or rate limits are hit, the system seamlessly falls back to reliable local heuristics.
-
----
-
-## Architecture & Modules
-
-The project is structured as a polyglot microservice architecture. Each task is isolated into a tiny, independent module, allowing for seamless substitution or extension without breaking the pipeline.
-
-- **Scraper (Go):** High-speed, concurrent scraping of job boards returning structured JSON.
-- **Normalizer (TypeScript/Node.js):** Cleans and standardizes raw scraped data into a unified schema.
-- **Deduplicator (Rust):** Memory-safe, high-performance unique filtering using HashSets (CLI).
-- **Parser (Python):** Local regex and keyword-based resume extraction (REST API).
-- **Matcher (Python):** Deterministic Jaccard-style keyword overlap scoring (REST API). 
-- **Storage (Java):** JDBC/Flat-file persistence layer.
-- **Exporter (C#):** Fast Excel/CSV report generation.
-- **UI (Vanilla HTML/JS):** Lightweight frontend dashboard.
-- **Orchestrator (Node.js):** Coordinates cross-language flow using HTTP and sub-processes.
-
----
-
-## Installation & Requirements
-
-To run the full polyglot pipeline, you will need the corresponding runtimes installed:
-
-### Prerequisites
-- **Python 3.10+** (For Parser & Matcher)
-- **Node.js 18+** (For Orchestrator & Normalizer)
-- **Go 1.20+** (For Scraper)
-- **Rust (Cargo)** (For Deduplicator)
-- **Java 17+ (JDK)** (For Storage)
-- **.NET SDK 7.0+ / Mono** (For C# Exporter)
-
-### Dependencies
-- **Python:** Standard libraries only for local parsing. (Optional AI module may require `requests`).
-- **Node.js:** `express`, `child_process`.
-- **UI:** No external framework required.
-
-### Setup Instructions
-
-1. **Clone the repository:**
-   ```bash
+### 2. Local Setup
+1. Clone the repository:
+   \`\`\`bash
    git clone https://github.com/IamAzmathullaShaikh/JobHunterAI.git
-   cd JobHunterAI/multi_lang
-   ```
+   cd JobHunterAI
+   \`\`\`
+2. Install dependencies:
+   \`\`\`bash
+   npm install
+   \`\`\`
+3. (Optional) Create a \`.env\` file in the root directory if you plan to use AI features:
+   \`\`\`env
+   GEMINI_API_KEY=your_gemini_api_key
+   \`\`\`
+4. Start the application:
+   \`\`\`bash
+   npm run dev
+   \`\`\`
+   Access the app at \`http://localhost:3000\`.
 
-2. **Python Services (Parser/Matcher):**
-   ```bash
-   python multi_lang/parser/parser.py &
-   python multi_lang/matcher/local_matcher.py &
-   ```
+### Using Docker
+1. Ensure Docker and Docker Compose are installed.
+2. Run the application:
+   \`\`\`bash
+   docker-compose up --build
+   \`\`\`
 
-3. **Node.js Normalizer:**
-   ```bash
-   npm install express
-   node multi_lang/normalizer/normalizer.ts &
-   ```
+## Project Structure
+- \`/src\`: Frontend React code (Vite + Tailwind CSS).
+- \`/server.ts\`: Backend Express server handling API routes.
+- \`/database\`: Local JSON database (db.json) handling data persistence.
+- \`package.json\`: Project dependencies and scripts.
 
-4. **Go Scraper:**
-   ```bash
-   cd multi_lang/scraper
-   go run scraper.go &
-   ```
+## Installation and Requirements
+- **Node.js**: Requires Node.js version 18+.
+- **NPM**: Package manager to run scripts.
 
----
+## Running the System
+- **Development**: Run \`npm run dev\` to start both the Vite dev server and Express backend.
+- **Production Build**: Run \`npm run build\` and then \`npm start\`.
+- **AI Modules**: AI matching and scraping features are optional. If \`GEMINI_API_KEY\` is not present, the app falls back to local deterministic parsers and mock data.
 
-## Instructions & Usage
+## Troubleshooting
 
-### Running the Orchestrator
+### Broken Job Links
+**Issue**: Clicking a job in the UI shows an error or points to the wrong job.
+**Fix applied**: The app now stores both \`raw_url\` and \`canonical_url\`. The deduplication key uses a robust fingerprint (\`title + company + location + portal_id\`). The UI binds to \`canonical_url\` and shows a user-friendly expired job message if the link is missing.
+**Verification**: Check \`server.ts\` logs for `[Scraper]` and `[Normalizer]` to trace job records.
 
-The system can be fully automated using the Node.js orchestrator script, which chains the local modules together:
+## Testing
+Currently, the pipeline can be tested by inspecting the console logs during the ingestion process:
+- Scraper logs output the raw generated listings.
+- Normalizer logs the addition of unique jobs to the local DB.
 
-```bash
-cd multi_lang/orchestrator
-node orchestrator.js
-```
-
-### Manual Module Usage Examples
-
-**1. Parse a Resume Locally (Python)**
-```bash
-curl -X POST http://localhost:8084/parse \
-  -H "Content-Type: text/plain" \
-  -d "I am a Software Engineer with 5 years of experience in Python and React."
-```
-
-**2. Scrape Jobs (Go)**
-```bash
-curl http://localhost:8081/scrape
-```
-
-**3. Deduplicate (Rust)**
-```bash
-rustc multi_lang/deduplicator/deduplicator.rs -o dedup
-./dedup "dataset_string"
-```
-
-**4. Export to CSV (C#)**
-```bash
-csc multi_lang/exporter/Exporter.cs
-./Exporter.exe
-```
-
-### Enabling Optional AI Features
-
-If you want to use the nuanced semantic AI matcher instead of the local heuristic matcher:
-
-1. Obtain an API key from OpenRouter, Groq, or Gemini.
-2. Set the environment variable: `export OPENROUTER_API_KEY=your_key`
-3. Run the AI Matcher service:
-   ```bash
-   python multi_lang/matcher/ai_matcher.py &
-   ```
-
----
-
-## Commit & GitHub Workflow
-
-We maintain a clean, readable git history. All commits must follow professional conventions.
-
-### Branch Naming
-- `feature/module-name` (e.g., `feature/go-scraper`)
-- `fix/bug-description` (e.g., `fix/local-fallback`)
-- `docs/readme-update`
-
-### Commit Message Format
-Every commit must contain:
-1. **A short imperative summary** (Max 50 characters).
-2. **A detailed description** explaining *What*, *Why*, and the *Impact*.
-
-**Example Commit Message Template:**
-```text
-feat(parser): add local rule-based resume parser
-
-Implemented a Python REST service for parsing resumes locally.
-Utilizes regex and keyword dictionaries instead of AI.
-Ensures fast, deterministic extraction of skills and experience without rate limits.
-```
-
----
+## Docker and CI/CD
+- **Docker Compose**: Sets up the app environment easily with a simple \`docker-compose up\`.
+- **GitHub Actions**: (If configured) Automates linting and builds on every push to the \`main\` branch.
 
 ## Contribution Guidelines
+1. Branch naming: \`feature/feature-name\` or \`fix/bug-fix-name\`.
+2. Commit message format: \`type(scope): description\` (e.g., \`fix(scraper): capture resolved URL\`).
+3. Rule: Maintain local-first data integrity.
 
-We welcome contributions! To ensure system stability and modularity, please follow these rules:
-
-1. **Keep it Local-First:** New core features must not depend on paid or rate-limited APIs. Always provide a deterministic fallback.
-2. **Microservice Isolation:** If you add a new module (e.g., an Interview Prep module), make it a standalone service with a clear I/O interface.
-3. **Multi-Language Parity:** Feel free to implement a module in a new language (e.g., a Ruby Scraper or a C++ Deduplicator).
-4. **Detailed Commits:** Squashed PRs must use the detailed commit message template outlined above.
-
----
-
-## Credits
-
-- **Maintainer:** IamAzmathullaShaikh
-- Built using open-source, local-first logic patterns.
-- Optional AI capabilities powered by OpenRouter / Groq / Gemini.
-
----
-
-## License
-
-This project is licensed under the **MIT License**.
+## Credits and License
+Maintained by IamAzmathullaShaikh.
+Released under the MIT License.

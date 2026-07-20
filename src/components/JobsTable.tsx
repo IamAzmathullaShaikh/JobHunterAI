@@ -101,7 +101,7 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
                   </td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-2.5">
-                      {(!job.url || job.url === '#' || job.url.trim() === '') ? (
+                      {(!(job.canonical_url || job.url) || (job.canonical_url || job.url) === '#' || (job.canonical_url || job.url).trim() === '') ? (
                         <div className="flex flex-col items-end">
                           <span className="text-rose-400 text-[10px] leading-tight text-right max-w-[140px]">
                             This job may have expired. <a href={`https://www.google.com/search?q=${encodeURIComponent(job.title + " " + job.company_name + " jobs")}`} target="_blank" rel="noreferrer" className="underline hover:text-indigo-300 transition-colors">Click here to search again on {job.source}</a>.
@@ -109,7 +109,7 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
                         </div>
                       ) : (
                         <a
-                          href={job.url}
+                          href={(job.canonical_url || job.url)}
                           target="_blank"
                           rel="noreferrer"
                           className="text-slate-400 hover:text-slate-200 transition-colors inline-flex items-center gap-1 text-xs"
