@@ -1,9 +1,26 @@
-// Orchestrates the microservices via HTTP/CLI
-console.log("Starting polyglot orchestration...");
-// 1. Call Go Scraper (REST: GET /scrape)
-// 2. Call TS Normalizer (REST: POST /normalize)
-// 3. Call Rust Deduplicator (CLI)
-// 4. Call Python Matcher (REST: POST /)
-// 5. Store in Java (CLI/JDBC)
-// 6. Export via C# (CLI)
-console.log("Orchestration complete.");
+const { execSync } = require('child_process');
+
+console.log("=== JobHunterAI Local Orchestrator ===");
+
+console.log("\n1. Scraping (Go)");
+// fetch('http://localhost:8081/scrape')
+
+console.log("\n2. Normalizing (TS)");
+// fetch('http://localhost:8082/normalize')
+
+console.log("\n3. Deduplicating (Rust)");
+execSync('rustc ../deduplicator/deduplicator.rs -o dedup && ./dedup "data"', {stdio: 'inherit'});
+
+console.log("\n4. Parsing Resume Locally (Python)");
+// fetch('http://localhost:8084/parse')
+
+console.log("\n5. Local Keyword Matching (Python)");
+// fetch('http://localhost:8085/match')
+
+console.log("\n6. Storage (Java)");
+execSync('javac ../storage/Storage.java && java -cp ../storage Storage', {stdio: 'inherit'});
+
+console.log("\n7. Export (C#)");
+// execSync('csc ../exporter/Exporter.cs && mono Exporter.exe');
+
+console.log("\n=== Pipeline Complete ===");
