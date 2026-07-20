@@ -26,10 +26,11 @@ const ai = new GoogleGenAI({
   },
 });
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
 function getModel(requestedModel?: string): string {
-  return requestedModel || DEFAULT_MODEL;
+  const model = requestedModel || DEFAULT_MODEL;
+  return model.startsWith("models/") ? model : `models/${model}`;
 }
 
 // JSON-based Persistent Local Database
