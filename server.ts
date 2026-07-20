@@ -26,9 +26,11 @@ const ai = new GoogleGenAI({
   },
 });
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+const DEFAULT_MODEL = "gemini-3.5-flash";
 
 function getModel(requestedModel?: string): string {
+  // If the user requests a model from the client, use it. Otherwise, fallback to the default.
+  // Note: we do NOT read process.env.GEMINI_MODEL as it conflicts with AI Studio platform env vars.
   return requestedModel || DEFAULT_MODEL;
 }
 
