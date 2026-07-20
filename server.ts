@@ -26,7 +26,7 @@ const ai = new GoogleGenAI({
   },
 });
 
-const DEFAULT_MODEL = "gemini-1.5-flash";
+const DEFAULT_MODEL = "gemini-3.1-flash-lite";
 
 function getModel(requestedModel?: string): string {
   // If the user requests a model from the client, use it. Otherwise, fallback to the default.
