@@ -1,16 +1,24 @@
-# Multi-Language JobHunterAI
+# JobHunterAI - Local-First Multi-Language Architecture
 
-This directory contains the polyglot microservice implementation of JobHunterAI.
-Each module runs independently and communicates via REST or CLI.
+JobHunterAI has been rewritten to prioritize local execution, modularity, and deterministic rule-based logic across multiple programming languages. 
 
-## Modules
-- **Scraper**: Go (REST API)
-- **Normalizer**: TypeScript (Express REST API)
-- **Deduplicator**: Rust (CLI logic)
-- **Storage**: Java (JDBC logic)
-- **Matcher**: Python (REST API - Optional AI integration via Groq/OpenRouter)
-- **Exporter**: C# (CLI logic)
-- **Orchestrator**: Node.js/JavaScript (Coordinates cross-language modules)
+## Local-First Design Philosophy
+Core features like resume parsing, job deduplication, and matching no longer rely on external AI/LLM APIs. By using local regex, keyword dictionaries, and HashSets, the system is faster, privacy-preserving, and offline-capable.
 
-## AI Usage
-AI models are exclusively used in the Python Matcher module and only execute if an API key is provided, falling back to local heuristic matching by default.
+## Modules & Responsibilities
+- **Scraper (Go):** Fast concurrent local scraping of job boards (REST API on `:8081`).
+- **Normalizer (TS):** Cleans and standardized scraped data (REST API on `:8082`).
+- **Deduplicator (Rust):** High-speed unique filtering using `HashSet` (CLI).
+- **Parser (Python):** Local regex & keyword-based resume extraction (REST API on `:8084`).
+- **Matcher (Python):** Deterministic Jaccard-style keyword overlap scoring (REST API on `:8085`).
+- **Storage (Java):** JDBC/Flat-file persistence (CLI).
+- **Exporter (C#):** Excel/CSV report generation (CLI).
+- **UI (HTML/JS):** Lightweight vanilla dashboard.
+- **Orchestrator (Node.js):** Coordinates cross-language flow using HTTP and sub-processes.
+
+## Optional AI Integration
+AI models (OpenRouter/Groq) are strictly isolated in `multi_lang/matcher/ai_matcher.py`. 
+To enable nuanced semantic scoring, run the AI Matcher (REST API on `:8086`) and provide an `OPENROUTER_API_KEY`. If omitted, the system gracefully falls back to the deterministic local Matcher.
+
+## GitHub Workflow & Interconnection
+The repository maintains clean branch isolation for each feature module (`feature/go-scraper`, `feature/local-matcher`, etc.), merged sequentially into `main` with professional imperative commit messages. The Node.js orchestrator bridges these languages using standard `fetch` calls and `child_process.execSync` for CLI tools.
