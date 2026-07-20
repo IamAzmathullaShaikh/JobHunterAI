@@ -68,7 +68,10 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 text-sm">
-              {filteredJobs.map((job) => (
+              {filteredJobs.map((job) => {
+                console.log('RENDER_JOB', job);
+                const linkToOpen = job.canonical_url || job.raw_url || job.url;
+                return (
                 <tr key={job.id} className="hover:bg-slate-900/20 transition-colors">
                   <td className="py-3.5 px-4 max-w-[320px]">
                     <div className="font-semibold text-slate-200 truncate">{job.title}</div>
@@ -101,7 +104,7 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
                   </td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-2.5">
-                      {(!(job.canonical_url || job.url) || (job.canonical_url || job.url) === '#' || (job.canonical_url || job.url).trim() === '') ? (
+                      {(!linkToOpen || linkToOpen === '#' || linkToOpen.trim() === '' || linkToOpen.includes('mock')) ? (
                         <div className="flex flex-col items-end">
                           <span className="text-rose-400 text-[10px] leading-tight text-right max-w-[140px]">
                             This job may have expired. <a href={`https://www.google.com/search?q=${encodeURIComponent(job.title + " " + job.company_name + " jobs")}`} target="_blank" rel="noreferrer" className="underline hover:text-indigo-300 transition-colors">Click here to search again on {job.source}</a>.
@@ -109,7 +112,7 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
                         </div>
                       ) : (
                         <a
-                          href={(job.canonical_url || job.url)}
+                          href={linkToOpen}
                           target="_blank"
                           rel="noreferrer"
                           className="text-slate-400 hover:text-slate-200 transition-colors inline-flex items-center gap-1 text-xs"
@@ -135,7 +138,8 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );
+              })}
             </tbody>
           </table>
         </div>
