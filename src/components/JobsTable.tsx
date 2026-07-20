@@ -23,10 +23,10 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
         <div>
           <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-indigo-400" />
-            🔍 Discovered Job Listings Pipeline
+            🔍 Jobs Found
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            View and filter raw data entries fetched concurrently across tracking streams.
+            View and filter all the jobs we found for you.
           </p>
         </div>
         <div className="relative w-full sm:w-72">
@@ -46,7 +46,7 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
           <Briefcase className="w-12 h-12 text-slate-600 mx-auto mb-3" />
           <p className="text-sm font-medium text-slate-300">No job listings found.</p>
           <p className="text-xs text-slate-500 mt-1">
-            Head over to the Home landing page to fire up the crawler pipeline.
+            Go to the Dashboard to search for jobs.
           </p>
         </div>
       ) : (
@@ -101,7 +101,7 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
                         rel="noreferrer"
                         className="text-slate-400 hover:text-slate-200 transition-colors inline-flex items-center gap-1 text-xs"
                       >
-                        Portal
+                        View Job
                         <ExternalLink className="w-3 h-3" />
                       </a>
                       {job.application ? (

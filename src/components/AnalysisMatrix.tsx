@@ -52,7 +52,7 @@ export default function AnalysisMatrix({
       setSelectedJobId(jobId);
     } catch (err: any) {
       console.error(err);
-      setEvaluationError(err.message || "Compatibility alignment evaluation failed.");
+      setEvaluationError(err.message || "Could not check job match.");
     } finally {
       setIsEvaluating(false);
     }
@@ -84,7 +84,7 @@ export default function AnalysisMatrix({
       onAnalysisComplete(jobsData.jobs);
     } catch (err: any) {
       console.error(err);
-      setEvaluationError(err.message || "Batch alignment evaluation failed.");
+      setEvaluationError(err.message || "Could not check all jobs.");
     } finally {
       setIsEvaluatingAll(false);
     }
@@ -97,10 +97,10 @@ export default function AnalysisMatrix({
           <div>
             <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
               <Brain className="w-5 h-5 text-indigo-400" />
-              🧠 AI Analysis Compatibility Matrix
+              🧠 Check how well you match with jobs
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Review deep alignment vectors, target gaps, and match calculations evaluated via Google Gemini.
+              See how well your resume matches these jobs and what you can improve.
             </p>
           </div>
 
@@ -113,12 +113,12 @@ export default function AnalysisMatrix({
               {isEvaluatingAll ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Aligning Batch...
+                  Checking Jobs...
                 </>
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5" />
-                  Evaluate {Math.min(unevaluatedJobs.length, 5)} Pending Listings
+                  Check match for {Math.min(unevaluatedJobs.length, 5)} jobs
                 </>
               )}
             </button>
@@ -135,14 +135,14 @@ export default function AnalysisMatrix({
         {evaluatedJobs.length === 0 ? (
           <div className="p-8 border border-dashed border-slate-700 bg-slate-900/40 rounded-lg text-center">
             <Brain className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <h4 className="text-sm font-semibold text-slate-300">No evaluations found yet</h4>
+            <h4 className="text-sm font-semibold text-slate-300">No job matches checked yet</h4>
             <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              You must upload a candidate profile and have tracked some jobs first. Run the Discovery pipeline or click evaluate on a specific role below.
+              Upload your resume and find some jobs first. Then you can check how well you match.
             </p>
 
             {unevaluatedJobs.length > 0 && (
               <div className="mt-5 max-w-sm mx-auto space-y-3">
-                <span className="text-xs font-semibold text-slate-400 block">Evaluate a job from your pipeline:</span>
+                <span className="text-xs font-semibold text-slate-400 block">Select a job to check:</span>
                 <select
                   onChange={(e) => triggerEvaluation(Number(e.target.value))}
                   defaultValue=""
@@ -163,7 +163,7 @@ export default function AnalysisMatrix({
           <div className="space-y-6">
             <div>
               <label className="text-xs font-semibold text-slate-400 block mb-1">
-                Select an evaluated job post to inspect:
+                Select a checked job to see details:
               </label>
               <select
                 value={activeJobId ?? ""}
@@ -196,7 +196,7 @@ export default function AnalysisMatrix({
 
                   <div className="md:col-span-3 bg-slate-900/40 rounded-xl p-5 border border-slate-800">
                     <span className="text-xs font-semibold text-slate-400 block mb-1">
-                      Fit Strategic Summary:
+                      Summary:
                     </span>
                     <p className="text-sm text-slate-300 leading-relaxed font-sans">
                       {activeJob.ai_analysis.fit_summary}

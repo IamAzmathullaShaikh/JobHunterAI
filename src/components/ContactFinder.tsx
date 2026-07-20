@@ -59,10 +59,10 @@ export default function ContactFinder({ defaultSearchQuery }: ContactFinderProps
       <div>
         <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
           <Users className="w-5 h-5 text-indigo-400" />
-          🎯 Recruiter & Decision-Maker Contact Finder
+          🎯 Find hiring managers and recruiters
         </h3>
         <p className="text-xs text-slate-400 mt-0.5">
-          Locate founders, hiring managers, and recruiters on LinkedIn and X (Twitter) for direct cold outreach.
+          Step 4: Find people who can hire you and get an AI-drafted message to send them.
         </p>
       </div>
 
@@ -71,7 +71,7 @@ export default function ContactFinder({ defaultSearchQuery }: ContactFinderProps
         <div className="space-y-4">
           <div>
             <label className="text-xs font-semibold text-slate-400 block mb-1">
-              Target Company Name
+              Company Name
             </label>
             <input
               type="text"
@@ -84,7 +84,7 @@ export default function ContactFinder({ defaultSearchQuery }: ContactFinderProps
 
           <div>
             <label className="text-xs font-semibold text-slate-400 block mb-1">
-              Target Role Title
+              Job Title
             </label>
             <input
               type="text"
@@ -105,12 +105,12 @@ export default function ContactFinder({ defaultSearchQuery }: ContactFinderProps
             {isSearching ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Scanning Contact Vectors...
+                Finding contacts...
               </>
             ) : (
               <>
                 <SearchCode className="w-4 h-4" />
-                Find Decision Makers & Draft Cold Message
+                Find Recruiters & Draft Message
               </>
             )}
           </button>
@@ -121,14 +121,14 @@ export default function ContactFinder({ defaultSearchQuery }: ContactFinderProps
           {isSearching ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
               <Loader2 className="w-8 h-8 animate-spin text-indigo-400 mb-2" />
-              <p className="text-xs text-slate-400">Generating Google X-Ray search vectors and custom AI cold message...</p>
+              <p className="text-xs text-slate-400">Looking for recruiters and writing your message...</p>
             </div>
           ) : contactResult ? (
             <div className="space-y-5 flex-1 flex flex-col justify-between">
               <div>
                 <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 flex items-center gap-1">
                   <Link2 className="w-3.5 h-3.5" />
-                  🔗 Direct X-Ray Search Queries:
+                  🔗 Search Links:
                 </h4>
                 <ul className="space-y-1.5 text-xs text-slate-300">
                   {Object.entries(contactResult.suggested_search_queries).map(([label, url]) => (
@@ -140,7 +140,7 @@ export default function ContactFinder({ defaultSearchQuery }: ContactFinderProps
                         rel="noreferrer"
                         className="text-emerald-400 hover:text-emerald-300 font-semibold underline truncate block max-w-[200px] sm:max-w-[250px]"
                       >
-                        Launch Filtered Search
+                        Click to search
                       </a>
                     </li>
                   ))}
@@ -151,7 +151,7 @@ export default function ContactFinder({ defaultSearchQuery }: ContactFinderProps
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
                     <MessageSquareCode className="w-3.5 h-3.5" />
-                    💬 Personalized Cold DM Draft:
+                    💬 Your personalized message:
                   </h4>
                   <button
                     onClick={copyToClipboard}
@@ -178,8 +178,8 @@ export default function ContactFinder({ defaultSearchQuery }: ContactFinderProps
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-500 py-6">
               <HelpCircle className="w-10 h-10 text-slate-600 mb-2" />
-              <p className="text-xs">No active lookup. Enter details on the left to locate hiring contacts.</p>
-              <span className="text-[10px] text-slate-600 mt-1">Uses pre-indexed search bounds and LLM outreach.</span>
+              <p className="text-xs">Enter a company and job title to find recruiters.</p>
+              <span className="text-[10px] text-slate-600 mt-1"></span>
             </div>
           )}
         </div>

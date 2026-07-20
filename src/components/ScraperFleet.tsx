@@ -47,13 +47,13 @@ export default function ScraperFleet({
     };
 
     try {
-      await addLog("⚡ Spawning 9-Engine Autonomous Ingestion Fleet...", 100);
-      await addLog("📡 Connecting proxies & stealth shims...", 400);
-      await addLog("🕷️ LinkedIn: scanning public job index feed...", 500);
-      await addLog("🕷️ Indeed & Glassdoor: executing keyword extraction...", 400);
-      await addLog("🕷️ Naukri & Foundit: harvesting local sales vectors...", 400);
-      await addLog("🕷️ YC Jobs & Internshala: scraping tech/intern listings...", 400);
-      await addLog("📦 Raw deduplication guards: active...", 350);
+      await addLog("⚡ Starting job search engines...", 100);
+      await addLog("📡 Connecting to job boards...", 400);
+      await addLog("🕷️ LinkedIn: searching for jobs...", 500);
+      await addLog("🕷️ Indeed & Glassdoor: extracting job info...", 400);
+      await addLog("🕷️ Naukri & Foundit: collecting matches...", 400);
+      await addLog("🕷️ YC Jobs & Internshala: looking for tech/internships...", 400);
+      await addLog("📦 Cleaning up duplicate jobs...", 350);
 
       // Construct candidate context
       let candidate_context = resumeText;
@@ -83,17 +83,17 @@ Highlights: ${profile.experience_highlights.join("; ")}`;
 
       const data = await response.json();
 
-      await addLog("🤖 Parsing raw HTML & payloads with Gemini...", 500);
-      await addLog("⚖️ Cross-checking keyword alignment heuristics...", 400);
-      await addLog(`✅ Ingestion fleet run complete.`, 300);
-      await addLog(`📊 Discovered ${data.scraped_count} matching listings across channels.`, 200);
-      await addLog(`🆕 Appended ${data.new_count} unique job records to the local database.`, 100);
+      await addLog("🤖 Analyzing jobs with AI...", 500);
+      await addLog("⚖️ Checking how well you match...", 400);
+      await addLog(`✅ Search complete.`, 300);
+      await addLog(`📊 Discovered ${data.scraped_count} matching jobs.`, 200);
+      await addLog(`🆕 Appended ${data.new_count} new jobs to your list.`, 100);
 
       onJobsDiscovered(data.jobs);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Pipeline execution encountered a critical error.");
-      setLogs((prev) => [...prev, "❌ Ingestion Pipeline Aborted due to error."]);
+      setError(err.message || "An error occurred during the search.");
+      setLogs((prev) => [...prev, "❌ Job search stopped due to an error."]);
     } finally {
       setIsRunning(false);
     }
@@ -105,10 +105,10 @@ Highlights: ${profile.experience_highlights.join("; ")}`;
       <div className="bg-slate-800/60 rounded-xl p-6 border border-slate-700/80 shadow-md">
         <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2 mb-1">
           <Database className="w-5 h-5 text-indigo-400" />
-          🎛️ Search Parameters
+          🎛️ Choose keywords and location
         </h3>
         <p className="text-xs text-slate-400 mb-5">
-          Configure keywords and geofencing values for the crawlers.
+          Step 2: Tell us what kind of job and where you want to work.
         </p>
 
         {error && (
@@ -121,7 +121,7 @@ Highlights: ${profile.experience_highlights.join("; ")}`;
         <div className="space-y-4">
           <div>
             <label className="text-xs font-semibold text-slate-400 block mb-1">
-              Target Search Keyword
+              Job Title or Keyword
             </label>
             <input
               type="text"
@@ -134,7 +134,7 @@ Highlights: ${profile.experience_highlights.join("; ")}`;
 
           <div>
             <label className="text-xs font-semibold text-slate-400 block mb-1">
-              Geofence / Target Location
+              Location
             </label>
             <input
               type="text"
@@ -147,7 +147,7 @@ Highlights: ${profile.experience_highlights.join("; ")}`;
 
           <div>
             <label className="text-xs font-semibold text-slate-400 block mb-1">
-              Employment Classification
+              Job Type
             </label>
             <select
               value={jobType}
@@ -167,15 +167,15 @@ Highlights: ${profile.experience_highlights.join("; ")}`;
         <div>
           <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2 mb-1">
             <Terminal className="w-5 h-5 text-indigo-400" />
-            🖥️ Fleet Telemetry & Execution
+            🖥️ Search across 9 job boards at once
           </h3>
           <p className="text-xs text-slate-400 mb-4">
-            Dispatches 9 scraping engines: LinkedIn, Indeed, Naukri, Foundit, Glassdoor, Google Jobs, Apify, Internshala, & YC.
+            Step 3: We will search LinkedIn, Indeed, Naukri, Glassdoor, and more to find the best jobs.
           </p>
 
           <div className="bg-slate-950 rounded-lg p-4 border border-slate-800 font-mono text-xs text-indigo-300 min-h-[140px] max-h-[180px] overflow-y-auto space-y-1">
             {logs.length === 0 ? (
-              <span className="text-slate-500">Pipeline Idle. Ready to initiate ingestion based on profile criteria.</span>
+              <span className="text-slate-500">Ready to search. Click the button below when you are ready.</span>
             ) : (
               logs.map((log, index) => (
                 <div key={index} className="leading-relaxed">
@@ -186,7 +186,7 @@ Highlights: ${profile.experience_highlights.join("; ")}`;
             {isRunning && (
               <div className="flex items-center gap-2 text-indigo-400 mt-2 italic animate-pulse">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Processing data vectors...
+                Processing data...
               </div>
             )}
           </div>
@@ -201,12 +201,12 @@ Highlights: ${profile.experience_highlights.join("; ")}`;
             {isRunning ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Executing Ingestion Fleet...
+                Searching for jobs...
               </>
             ) : (
               <>
                 <Play className="w-4 h-4 fill-current" />
-                Execute 9-Engine Ingestion & AI Alignment
+                Find Jobs Now
               </>
             )}
           </button>

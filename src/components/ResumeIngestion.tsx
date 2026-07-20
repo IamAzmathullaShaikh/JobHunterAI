@@ -112,10 +112,10 @@ export default function ResumeIngestion({
         <div>
           <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
             <FileText className="w-5 h-5 text-indigo-400" />
-            📄 Candidate Resume Ingestion
+            📄 Upload your resume
           </h3>
           <p className="text-xs text-slate-400">
-            Parse profile metrics to automatically extract skill vectors.
+            Step 1: Upload your resume (PDF or text) to extract skills automatically.
           </p>
         </div>
         <div className="flex bg-slate-900 rounded-lg p-1 text-xs">
@@ -176,7 +176,7 @@ export default function ResumeIngestion({
               )}
             </div>
             <p className="text-sm font-medium text-slate-200 text-center">
-              {isParsing ? "Analyzing skill vectors..." : "Drag & Drop or click to upload PDF/TXT"}
+              {isParsing ? "Extracting Skills..." : "Drag & Drop or click to upload PDF/TXT"}
             </p>
             <p className="text-xs text-slate-400 mt-1">Supports PDF or plain text</p>
           </label>
@@ -198,12 +198,12 @@ export default function ResumeIngestion({
             {isParsing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Parsing Candidate Resume...
+                Extracting Skills...
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                Extract Profile Capabilities
+                Extract Skills
               </>
             )}
           </button>
@@ -214,7 +214,7 @@ export default function ResumeIngestion({
         <div className="mt-6 border-t border-slate-700/60 pt-5">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-200 mb-3">
             <CheckCircle className="w-4 h-4 text-emerald-400" />
-            👤 Active Candidate Profile
+            👤 Your Profile
           </div>
           <div className="bg-slate-900/60 rounded-lg p-4 border border-slate-800 space-y-3 text-sm">
             <div className="grid grid-cols-2 gap-y-2 gap-x-4">
@@ -237,7 +237,7 @@ export default function ResumeIngestion({
             </div>
 
             <div>
-              <span className="text-xs text-slate-400 block mb-1">Identified Core Skills</span>
+              <span className="text-xs text-slate-400 block mb-1">Your Core Skills</span>
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {profile.key_skills?.map((skill, i) => (
                   <span
@@ -252,7 +252,7 @@ export default function ResumeIngestion({
 
             {profile.recommended_search_queries?.length > 0 && (
               <div>
-                <span className="text-xs text-slate-400 block mb-1">Suggested Search Vectors</span>
+                <span className="text-xs text-slate-400 block mb-1">Recommended job searches</span>
                 <div className="flex flex-wrap gap-1.5">
                   {profile.recommended_search_queries.map((q, i) => (
                     <code

@@ -239,17 +239,17 @@ export default function KanbanBoard({
         )
       ) : (
         <div className="bg-slate-800/60 rounded-xl p-5 border border-slate-700/80 shadow-md">
-          <h4 className="text-sm font-semibold text-slate-200 mb-1">Discovered Job Intake Funnel</h4>
+          <h4 className="text-sm font-semibold text-slate-200 mb-1">New Jobs to Track</h4>
           <p className="text-xs text-slate-400 mb-4">
-            Instantly index newly crawled web listings directly into your workflow columns.
+            Add jobs you just found to your tracking board.
           </p>
 
           {untrackedJobs.length === 0 ? (
             <div className="p-12 text-center text-slate-400 border border-dashed border-slate-700 rounded-lg bg-slate-900/20">
               <CheckCircle2 className="w-10 h-12 text-emerald-500 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-slate-300">Intake queue is empty!</p>
+              <p className="text-sm font-semibold text-slate-300">No new jobs to add!</p>
               <p className="text-xs text-slate-500 mt-1">
-                Excellent! Every single crawled job has been pulled safely into your active tracking pipelines.
+                Great! You have added all found jobs to your board.
               </p>
             </div>
           ) : (

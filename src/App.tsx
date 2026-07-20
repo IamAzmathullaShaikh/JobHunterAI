@@ -151,11 +151,11 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className="text-xl">⚡</span>
               <h1 className="text-lg font-bold text-slate-100 tracking-tight">
-                JobHunterAI Command Cockpit
+                JobHunterAI Dashboard
               </h1>
             </div>
             <p className="text-xs text-slate-400 mt-0.5 font-medium">
-              Autonomous Job Ingestion Fleet • AI Alignment & Resume Profiling • Recruiter Contact X-Ray
+              Your personal AI job search assistant
             </p>
           </div>
 
@@ -169,7 +169,7 @@ export default function App() {
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              ⚡ Cockpit
+              ⚡ Dashboard
             </button>
             <button
               onClick={() => setActiveTab("jobs")}
@@ -223,7 +223,7 @@ export default function App() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center text-center py-24 space-y-3">
             <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
-            <p className="text-sm text-slate-400 font-medium">Initialising Command Modules...</p>
+            <p className="text-sm text-slate-400 font-medium">Loading your job search dashboard...</p>
           </div>
         ) : (
           <>
@@ -253,10 +253,10 @@ export default function App() {
                     <div>
                       <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
                         <ClipboardList className="w-5 h-5 text-indigo-400" />
-                        📊 Application Status Tracker & Database Controls
+                        📊 Track your applications in one place
                       </h3>
                       <p className="text-xs text-slate-400">
-                        Review active tracks, clean up records, and export styled workbooks.
+                        Step 5: Review tracked jobs, clean up records, and download Excel reports (Step 6).
                       </p>
                     </div>
                   </div>
@@ -292,13 +292,13 @@ export default function App() {
                           className="w-full bg-indigo-600 hover:bg-indigo-500 text-slate-100 font-bold text-xs py-2 px-3 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow"
                         >
                           <Download className="w-4.5 h-4.5" />
-                          Generate Styled Excel (.xlsx)
+                          Download Excel report
                         </button>
                       </div>
 
                       <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800/80 space-y-3">
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                          🧹 Maintenance
+                          🧹 Cleanup
                         </h4>
                         <button
                           onClick={purgeDatabase}
@@ -306,7 +306,7 @@ export default function App() {
                           className="w-full bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold text-xs py-2 px-3 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-700"
                         >
                           <Trash2 className="w-4.5 h-4.5 text-rose-400" />
-                          🧼 Purge Duplicate listings
+                          🧼 Clean up duplicates
                         </button>
                       </div>
                     </div>
@@ -314,13 +314,13 @@ export default function App() {
                     {/* Active compatibility tracks display */}
                     <div className="lg:col-span-2 bg-slate-900/40 rounded-xl p-4 border border-slate-800/80 min-h-[220px]">
                       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
-                        📋 Ingested Roles & Compatibility Board
+                        📋 Tracked Jobs & Match Scores
                       </h4>
 
                       {trackedRoles.length === 0 ? (
                         <div className="text-center py-12 text-slate-500 text-xs">
                           <HelpCircle className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                          No active application tracks currently indexable.
+                          No jobs tracked yet. Go to 'Discovered Jobs' to add some.
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
