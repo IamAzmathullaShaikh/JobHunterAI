@@ -32,3 +32,8 @@ __pycache__/
 *.log
 .env
 .claude/
+
+# Node/React dependencies and builds
+node_modules/
+dist/
+db.json
