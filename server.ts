@@ -26,6 +26,12 @@ const ai = new GoogleGenAI({
   },
 });
 
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+
+function getModel(requestedModel?: string): string {
+  return requestedModel || DEFAULT_MODEL;
+}
+
 // JSON-based Persistent Local Database
 const DB_FILE = process.env.DB_PATH || path.join(process.cwd(), "db.json");
 
@@ -89,7 +95,7 @@ app.post("/api/profile/parse", async (req, res) => {
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: getModel(req.body.model),
       contents: geminiContents,
       config: {
         responseMimeType: "application/json",
@@ -158,7 +164,7 @@ Also specify workplace type (Remote, Hybrid, Onsite) and some realistic salary r
 Return the result in the requested JSON schema format.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: getModel(req.body.model),
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -322,7 +328,7 @@ Evaluate:
 Return the evaluation in the requested JSON format.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: getModel(req.body.model),
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -398,7 +404,7 @@ Description: ${job.description_raw}
 Return JSON with match_score, fit_summary, keywords_matched (string array), and keywords_missing (string array).`;
 
         const response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
+          model: getModel(req.body.model),
           contents: prompt,
           config: {
             responseMimeType: "application/json",
@@ -459,7 +465,7 @@ Also suggest direct Google X-Ray search query URLs (LinkedIn, Twitter) that loca
 Return the result in the requested JSON format.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: getModel(req.body.model),
       contents: prompt,
       config: {
         responseMimeType: "application/json",
