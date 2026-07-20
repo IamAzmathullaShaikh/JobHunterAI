@@ -234,6 +234,7 @@ Return the result in the requested JSON schema format.`;
     });
 
     const crawledListings = JSON.parse(response.text || "[]");
+    console.log("[Scraper] Raw crawled listings from AI:", JSON.stringify(crawledListings, null, 2));
 
     const db = loadDB();
     const existingIds = new Set(db.jobs.map((j) => j.job_id_raw));
@@ -250,6 +251,7 @@ Return the result in the requested JSON schema format.`;
           ai_analysis: null,
           application: null,
         };
+        console.log(`[Normalizer] Adding valid unique job: ${newJob.id} - ${newJob.title} at ${newJob.company_name}`);
         db.jobs.push(newJob);
         newJobsAdded.push(newJob);
       }
@@ -269,15 +271,23 @@ Return the result in the requested JSON schema format.`;
       {
         job_id_raw: `mock-${Date.now()}-1`,
         title: "Software Engineer",
-        company: "TechCorp",
+        company_name: "TechCorp",
         location: "Remote",
+        work_place_type: "Remote",
+        job_type: "Full-Time",
+        source: "LinkedIn",
+        url: "",
         description_raw: "Looking for a skilled developer with experience in React and Node.js."
       },
       {
         job_id_raw: `mock-${Date.now()}-2`,
         title: "Backend Developer",
-        company: "DataInc",
+        company_name: "DataInc",
         location: "New York, NY",
+        work_place_type: "Hybrid",
+        job_type: "Full-Time",
+        source: "Indeed",
+        url: "",
         description_raw: "Python and Go backend role with a focus on high concurrency."
       }
     ];
@@ -646,7 +656,7 @@ app.post("/api/jobs/purge", (req, res) => {
   const seenKeys = new Set<string>();
 
   db.jobs.forEach((j) => {
-    const key = `${j.title.toLowerCase().trim()}::${j.company_name.toLowerCase().trim()}`;
+    const key = `${(j.title || '').toLowerCase().trim()}::${(j.company_name || '').toLowerCase().trim()}::${(j.location || '').toLowerCase().trim()}`;
     if (j.application) {
       // Always keep actively tracked jobs
       uniqueTrackedOrFirst.push(j);

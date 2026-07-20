@@ -8,6 +8,12 @@ interface JobsTableProps {
 }
 
 export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
+  // Debug logging
+  React.useEffect(() => {
+    if (jobs.length > 0) {
+      console.log("[JobsTable] Rendered jobs:", jobs.map(j => ({ id: j.id, url: j.url, title: j.title })));
+    }
+  }, [jobs]);
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredJobs = jobs.filter(
@@ -95,15 +101,23 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
                   </td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-2.5">
-                      <a
-                        href={job.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-slate-400 hover:text-slate-200 transition-colors inline-flex items-center gap-1 text-xs"
-                      >
-                        View Job
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
+                      {(!job.url || job.url === '#' || job.url.trim() === '') ? (
+                        <div className="flex flex-col items-end">
+                          <span className="text-rose-400 text-[10px] leading-tight text-right max-w-[140px]">
+                            This job may have expired. <a href={`https://www.google.com/search?q=${encodeURIComponent(job.title + " " + job.company_name + " jobs")}`} target="_blank" rel="noreferrer" className="underline hover:text-indigo-300 transition-colors">Click here to search again on {job.source}</a>.
+                          </span>
+                        </div>
+                      ) : (
+                        <a
+                          href={job.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-slate-400 hover:text-slate-200 transition-colors inline-flex items-center gap-1 text-xs"
+                        >
+                          View Job
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
                       {job.application ? (
                         <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1">
                           <CheckCircle className="w-3.5 h-3.5" />
