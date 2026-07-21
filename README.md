@@ -65,6 +65,16 @@ the interpreter with `PYTHON_BIN=/path/to/python` if `python3` is not on PATH.
 Live scraping success depends on network access and each site's anti-bot
 defences; results can legitimately be empty from restricted networks.
 
+### Active engines
+
+Only the engines that reliably return real postings are active by default:
+**LinkedIn**, **Glassdoor**, and **Apify Cloud**. Apify returns nothing until you
+add a free `APIFY_API_TOKEN` to `.env`, after which it is the most robust engine
+(its cloud handles anti-bot). The remaining scrapers (Indeed, Naukri, Foundit,
+Google Jobs, Internshala, YC Jobs) are still in the codebase but disabled in
+`scrapers/manager.py` because they get blocked or return empty; add them back to
+`default_scrapers` to re-enable.
+
 ## Troubleshooting
 
 ### Job Links / Scraping

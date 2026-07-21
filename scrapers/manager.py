@@ -18,16 +18,14 @@ from scrapers.yc_jobs import YCJobsScraper
 class ScraperManager:
     def __init__(self, session: AsyncSession = None):
         self.session = session
+        # Active engines: only those that reliably return real postings.
+        # Indeed / Naukri / Foundit / Google Jobs / Internshala / YC Jobs are
+        # kept importable but disabled here because they get blocked or return
+        # empty in practice. Add them back to this list to re-enable.
         self.default_scrapers: List[BaseScraper] = [
             LinkedInScraper(),
-            IndeedScraper(),
-            NaukriScraper(),
-            FounditScraper(),
             GlassdoorScraper(),
-            GoogleJobsScraper(),
-            ApifyJobScraper(),
-            InternshalaScraper(),  # 👈 Added Internshala
-            YCJobsScraper()        # 👈 Added YC Jobs
+            ApifyJobScraper(),  # requires APIFY_API_TOKEN in .env, else returns empty
         ]
         
 
