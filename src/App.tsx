@@ -55,23 +55,30 @@ function Dashboard() {
     async function loadData() {
       setIsLoading(true);
       try {
-        const [pRes, jRes, tRes] = await Promise.all([
+        const responses = await Promise.allSettled([
           fetch("/api/profile"),
           fetch("/api/jobs"),
           fetch("/api/system/telemetry")
         ]);
 
-        const [pData, jData, tData] = await Promise.all([
-          pRes.json(),
-          jRes.json(),
-          tRes.json()
-        ]);
+        const [pRes, jRes, tRes] = responses;
 
-        if (pData.profile) setProfile(pData.profile);
-        setJobs(jData.jobs || []);
-        setTelemetry(tData);
+        if (pRes.status === "fulfilled" && pRes.value.ok) {
+          const pData = await pRes.value.json();
+          if (pData.profile) setProfile(pData.profile);
+        }
+
+        if (jRes.status === "fulfilled" && jRes.value.ok) {
+          const jData = await jRes.value.json();
+          setJobs(jData.jobs || []);
+        }
+
+        if (tRes.status === "fulfilled" && tRes.value.ok) {
+          const tData = await tRes.value.json();
+          setTelemetry(tData);
+        }
       } catch (err) {
-        console.error("Error loading system state:", err);
+        console.error("Critical error during data ingestion:", err);
       } finally {
         setIsLoading(false);
       }
