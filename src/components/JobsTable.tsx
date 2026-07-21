@@ -8,12 +8,6 @@ interface JobsTableProps {
 }
 
 export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
-  // Debug logging
-  React.useEffect(() => {
-    if (jobs.length > 0) {
-      console.log("[JobsTable] Rendered jobs:", jobs.map(j => ({ id: j.id, url: j.url, title: j.title })));
-    }
-  }, [jobs]);
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredJobs = jobs.filter(
@@ -69,7 +63,6 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
             </thead>
             <tbody className="divide-y divide-slate-800 text-sm">
               {filteredJobs.map((job) => {
-                console.log('RENDER_JOB', job);
                 const linkToOpen = job.canonical_url || job.raw_url || job.url;
                 return (
                 <tr key={job.id} className="hover:bg-slate-900/20 transition-colors">
@@ -104,7 +97,7 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
                   </td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-2.5">
-                      {(!linkToOpen || linkToOpen === '#' || linkToOpen.trim() === '' || linkToOpen.includes('mock')) ? (
+                      {(!linkToOpen || linkToOpen === '#' || linkToOpen.trim() === '') ? (
                         <div className="flex flex-col items-end">
                           <span className="text-rose-400 text-[10px] leading-tight text-right max-w-[140px]">
                             This job may have expired. <a href={`https://www.google.com/search?q=${encodeURIComponent(job.title + " " + job.company_name + " jobs")}`} target="_blank" rel="noreferrer" className="underline hover:text-indigo-300 transition-colors">Click here to search again on {job.source}</a>.
