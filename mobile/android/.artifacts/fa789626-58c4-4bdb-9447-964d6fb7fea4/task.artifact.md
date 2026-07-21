@@ -1,0 +1,6 @@
+- [ ] Enable Cleartext Traffic in `AndroidManifest.xml`
+- [ ] Implement Loading and Error states in `MainActivity.kt`
+- [ ] Enhance `JobBoardScreen.kt` with states and Material 3 styling
+- [ ] Implement local database fallback logic in `MainActivity` (or a Repository if exists)
+- [ ] Verify build and functionality
+- [ ] Commit and Push changes
