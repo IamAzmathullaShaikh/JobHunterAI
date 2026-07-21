@@ -18,7 +18,13 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production runtime stage
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
+
+# Python runtime for the real scraper fleet (Playwright needs a glibc base,
+# so we use Debian slim rather than Alpine/musl)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -31,6 +37,15 @@ COPY package*.json ./
 
 # Install only production dependencies
 RUN npm ci --omit=dev
+
+# Python scraper dependencies + Chromium browser for the fleet
+COPY requirements.txt ./
+RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt \
+    && python3 -m playwright install --with-deps chromium
+COPY scrapers ./scrapers
+COPY schemas ./schemas
+COPY scripts ./scripts
+COPY config ./config
 
 # Copy compiled production assets and bundled server from the builder stage
 COPY --from=builder /app/dist ./dist

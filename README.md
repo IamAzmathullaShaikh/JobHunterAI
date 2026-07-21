@@ -48,14 +48,33 @@ JobHunterAI is an automated, local-first job tracking and discovery application.
 ## Running the System
 - **Development**: Run \`npm run dev\` to start both the Vite dev server and Express backend.
 - **Production Build**: Run \`npm run build\` and then \`npm start\`.
-- **AI Modules**: AI matching and scraping features are optional. If \`GEMINI_API_KEY\` is not present, the app falls back to local deterministic parsers and mock data.
+- **AI Modules**: AI matching is optional and uses \`GEMINI_API_KEY\` when present. Job discovery uses the real Python + Playwright scraper fleet (see **Real Scraping Setup**); the app never fabricates listings.
+
+## Real Scraping Setup
+
+The scraper fleet is Python + Playwright. Install it once alongside the Node app:
+
+```bash
+pip install -r requirements.txt
+playwright install chromium
+```
+
+The Node server invokes `python3 scripts/scrape_cli.py` on each search. Override
+the interpreter with `PYTHON_BIN=/path/to/python` if `python3` is not on PATH.
+
+Live scraping success depends on network access and each site's anti-bot
+defences; results can legitimately be empty from restricted networks.
 
 ## Troubleshooting
 
-### Broken Job Links
-**Issue**: Clicking a job in the UI shows an error or points to the wrong job.
-**Fix applied**: The app now stores both \`raw_url\` and \`canonical_url\`. The deduplication key uses a robust fingerprint (\`title + company + location + portal_id\`). The UI binds to \`canonical_url\` and shows a user-friendly expired job message if the link is missing.
-**Verification**: Check \`server.ts\` logs for `[Scraper]` and `[Normalizer]` to trace job records.
+### Job Links / Scraping
+**Behaviour**: `POST /api/scrape` runs the real Python + Playwright scraper fleet
+(`scripts/scrape_cli.py` -> `scrapers/manager.py`). Each listing stores the real
+posting URL in `canonical_url`, and the UI opens it directly in a new tab. If the
+scrapers return nothing (site blocked / no network), the app shows an honest
+empty result -- it never fabricates listings.
+**Verification**: watch `server.ts` stdout for `[Scraper]` errors, and the Python
+fleet logs on stderr for per-engine counts.
 
 ## Testing
 Currently, the pipeline can be tested by inspecting the console logs during the ingestion process:
