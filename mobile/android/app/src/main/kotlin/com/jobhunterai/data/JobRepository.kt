@@ -10,17 +10,21 @@ class JobRepository(
     private val dao: JobDao
 ) {
     fun getLocalJobs(): Flow<List<JobListingEntity>> = dao.getAllJobs()
+    fun getLocalApplications(): Flow<List<JobApplicationEntity>> = dao.getAllApplications()
 
     suspend fun refreshJobs() {
         try {
             val remoteJobs = api.getJobs()
-            if (remoteJobs.isNotEmpty()) {
-                dao.deleteAll()
-                dao.insertJobs(remoteJobs)
-            }
+            // Map remote DTOs to local entities if needed
+            // For now assuming api.getJobs() returns List<JobListingEntity> as per previous mock
+            dao.insertJobs(remoteJobs)
         } catch (e: Exception) {
             Log.e("JobRepository", "Failed to refresh jobs", e)
             throw e
         }
+    }
+
+    suspend fun syncApplications() {
+        // Implementation for syncing applications with FastAPI
     }
 }

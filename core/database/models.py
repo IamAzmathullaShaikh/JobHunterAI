@@ -20,11 +20,10 @@ class Base(DeclarativeBase):
 # Enums
 # ----------------------------------------------------------------------
 class ApplicationStatus(str, enum.Enum):
-    IDENTIFIED = "Identified"
-    AI_READY = "AI Ready"
+    WISHLIST = "Wishlist"
     APPLIED = "Applied"
     INTERVIEWING = "Interviewing"
-    OFFER = "Offer"
+    OFFERED = "Offered"
     REJECTED = "Rejected"
     ARCHIVED = "Archived"
 
@@ -111,13 +110,26 @@ class JobApplication(Base):
     __tablename__ = "job_applications"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    job_id: Mapped[int] = mapped_column(ForeignKey("job_listings.id", ondelete="CASCADE"), unique=True)
+    job_id: Mapped[Optional[int]] = mapped_column(ForeignKey("job_listings.id", ondelete="SET NULL"), unique=True, nullable=True)
+
+    # Manual entry fields for Wishlist/Tracking
+    job_title: Mapped[str] = mapped_column(String(255))
+    company_name: Mapped[str] = mapped_column(String(255), index=True)
+    platform: Mapped[str] = mapped_column(String(50), default="Manual") # LinkedIn, Indeed, etc.
+    job_url: Mapped[Optional[str]] = mapped_column(Text)
+    location: Mapped[str] = mapped_column(String(255), default="Remote")
+    salary_range: Mapped[Optional[str]] = mapped_column(String(100))
+    match_score: Mapped[float] = mapped_column(Float, default=0.0)
 
     status: Mapped[ApplicationStatus] = mapped_column(
-        Enum(ApplicationStatus), default=ApplicationStatus.IDENTIFIED
+        Enum(ApplicationStatus), default=ApplicationStatus.WISHLIST
     )
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
+    recruiter_name: Mapped[Optional[str]] = mapped_column(String(255))
+    recruiter_email: Mapped[Optional[str]] = mapped_column(String(255))
+
+    applied_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     date_created: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -132,7 +144,7 @@ class JobApplication(Base):
     final_cover_used: Mapped[Optional[str]] = mapped_column(String(500))
 
     # Relationships
-    job: Mapped["JobListing"] = relationship(back_populates="application")
+    job: Mapped[Optional["JobListing"]] = relationship(back_populates="application")
 
 
 # ----------------------------------------------------------------------
@@ -264,13 +276,38 @@ class MatchHistory(Base):
 
 
 # ----------------------------------------------------------------------
-# Vector similarity placeholder (pgvector) – add column later if you enable the extension
+# Enterprise Modules: Recruiter Leads & Detailed Profiles
 # ----------------------------------------------------------------------
-# If you run `CREATE EXTENSION IF NOT EXISTS vector;` in Postgres, uncomment:
-# class JobListing(Base):
-#     __tablename__ = "job_listings"
-#     ...
-#     embedding: Mapped[Optional[list[float]]] = mapped_column(
-#         ARRAY(Float),  # simple fallback; replace with Vector(384) when pgvector is installed
-#         nullable=True
-#     )
+
+class RecruiterLead(Base):
+    __tablename__ = "recruiter_leads"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    company_name: Mapped[str] = mapped_column(String(255), index=True)
+    person_name: Mapped[str] = mapped_column(String(255))
+    title: Mapped[str] = mapped_column(String(255)) # e.g. Engineering Manager, Technical Recruiter
+    email: Mapped[Optional[str]] = mapped_column(String(255))
+    linkedin_url: Mapped[Optional[str]] = mapped_column(Text)
+    confidence_score: Mapped[float] = mapped_column(Float, default=0.8)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+class ResumeProfile(Base):
+    """Detailed Master Profile for the Resume Builder."""
+    __tablename__ = "resume_master_profiles"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    full_name: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(String(255))
+    phone: Mapped[Optional[str]] = mapped_column(String(50))
+    location: Mapped[Optional[str]] = mapped_column(String(255))
+    summary: Mapped[Optional[str]] = mapped_column(Text)
+    skills: Mapped[Optional[list]] = mapped_column(JSON, default=[])         # List of strings
+    work_history: Mapped[Optional[list]] = mapped_column(JSON, default=[])   # List of dicts
+    education: Mapped[Optional[list]] = mapped_column(JSON, default=[])      # List of dicts
+    certifications: Mapped[Optional[list]] = mapped_column(JSON, default=[]) # List of dicts
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )

@@ -18,7 +18,9 @@ import {
   FileSignature,
   MessageSquare,
   ListTodo,
-  Settings
+  Settings,
+  BarChart3,
+  Layout
 } from "lucide-react";
 import { CandidateProfile, JobListing, ApplicationStatus } from "./types.ts";
 import ResumeDrawer from "./components/ResumeDrawer.tsx";
@@ -31,6 +33,11 @@ import KanbanBoard from "./components/KanbanBoard.tsx";
 import ContactFinder from "./components/ContactFinder.tsx";
 import ErrorBoundary from "./components/ErrorBoundary.tsx";
 
+import ResumeWriter from "./components/ResumeWriter.tsx";
+import ResumeBuilder from "./components/ResumeBuilder.tsx";
+import RecruiterFinder from "./components/RecruiterFinder.tsx";
+import AnalyticsDashboard from "./components/AnalyticsDashboard.tsx";
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -40,7 +47,7 @@ export default function App() {
 }
 
 function Dashboard() {
-  const [activeTab, setActiveTab] = useState<"ats" | "cover" | "prep" | "outreach" | "jobs">("ats");
+  const [activeTab, setActiveTab] = useState<"ats" | "writer" | "builder" | "cover" | "prep" | "recruiters" | "jobs" | "kanban" | "analytics">("ats");
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [resumeText, setResumeText] = useState("");
@@ -158,13 +165,17 @@ function Dashboard() {
             </div>
           </div>
 
-          <nav className="flex items-center gap-1 bg-slate-950/50 p-1.5 rounded-2xl border border-slate-800/50 overflow-x-auto no-scrollbar">
+          <nav className="flex items-center gap-1 bg-slate-950/50 p-1.5 rounded-2xl border border-slate-800/50 overflow-x-auto no-scrollbar max-w-full">
             {[
               { id: "ats", label: "ATS Matcher", icon: Target },
-              { id: "cover", label: "Cover Letter", icon: FileSignature },
-              { id: "prep", label: "Interview Prep", icon: Brain },
-              { id: "outreach", label: "Outreach", icon: MessageSquare },
+              { id: "writer", label: "Resume Writer", icon: FileSignature },
+              { id: "builder", label: "Resume Builder", icon: Layout },
+              { id: "cover", label: "Cover Letter", icon: FileText },
+              { id: "prep", label: "Prep Studio", icon: Brain },
+              { id: "recruiters", label: "Recruiter Finder", icon: Users },
               { id: "jobs", label: "Job Board", icon: Briefcase },
+              { id: "kanban", label: "Tracker CRM", icon: ClipboardList },
+              { id: "analytics", label: "Analytics", icon: BarChart3 },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -220,6 +231,10 @@ function Dashboard() {
                </div>
              )}
 
+             {activeTab === "writer" && <ResumeWriter resumeText={resumeText} />}
+
+             {activeTab === "builder" && <ResumeBuilder />}
+
              {activeTab === "jobs" && <JobsTable jobs={jobs} onTrackJob={handleTrackJob} />}
 
              {activeTab === "cover" && (
@@ -235,24 +250,39 @@ function Dashboard() {
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8">
                    <div className="flex items-center gap-4 mb-8">
                       <Brain className="w-8 h-8 text-purple-400" />
-                      <h2 className="text-xl font-black text-white">Interview Q&A Prep</h2>
+                      <h2 className="text-xl font-black text-white">Interview Prep Studio</h2>
                    </div>
                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-                         <h3 className="font-bold text-indigo-400 mb-2">Behavioral</h3>
-                         <p className="text-xs text-slate-400">STAR method responses for common culture-fit questions.</p>
+                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-indigo-500/50 transition-all cursor-pointer">
+                         <h3 className="font-bold text-indigo-400 mb-2 uppercase tracking-widest text-[10px]">Behavioral</h3>
+                         <p className="text-sm text-white font-bold mb-2">STAR Method Master</p>
+                         <p className="text-xs text-slate-400">Practice common culture-fit questions with AI feedback.</p>
                       </div>
-                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-                         <h3 className="font-bold text-emerald-400 mb-2">Technical</h3>
-                         <p className="text-xs text-slate-400">Deep dives into stack-specific concepts and DSA.</p>
+                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-emerald-500/50 transition-all cursor-pointer">
+                         <h3 className="font-bold text-emerald-400 mb-2 uppercase tracking-widest text-[10px]">Technical</h3>
+                         <p className="text-sm text-white font-bold mb-2">System Design & DSA</p>
+                         <p className="text-xs text-slate-400">Deep dives into stack-specific concepts and coding challenges.</p>
                       </div>
-                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-                         <h3 className="font-bold text-amber-400 mb-2">Mock Voice</h3>
+                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-amber-500/50 transition-all cursor-pointer group">
+                         <h3 className="font-bold text-amber-400 mb-2 uppercase tracking-widest text-[10px]">Interactive</h3>
+                         <p className="text-sm text-white font-bold mb-2">Voice Mock Studio</p>
                          <p className="text-xs text-slate-400 italic opacity-50">Local Speech-to-Text integration coming soon.</p>
                       </div>
                    </div>
                 </div>
              )}
+
+             {activeTab === "recruiters" && <RecruiterFinder />}
+
+             {activeTab === "kanban" && (
+                <KanbanBoard
+                  jobs={jobs}
+                  onUpdateCard={handleUpdateApplicationCard}
+                  onTrackJob={handleTrackJob}
+                />
+             )}
+
+             {activeTab === "analytics" && <AnalyticsDashboard />}
           </div>
         )}
       </main>

@@ -12,7 +12,7 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "core"))
 
 from core.database.connection import get_db_session
-from backend.api import jobs, profile, ats, cover_letter, interview, outreach, system
+from backend.api import jobs, profile, ats, cover_letter, interview, outreach, system, resumes, recruiters, tracker
 
 import logging
 
@@ -77,6 +77,9 @@ app.include_router(cover_letter.router)
 app.include_router(interview.router)
 app.include_router(outreach.router)
 app.include_router(system.router)
+app.include_router(resumes.router)
+app.include_router(recruiters.router)
+app.include_router(tracker.router)
 
 @app.on_event("startup")
 async def startup_event():

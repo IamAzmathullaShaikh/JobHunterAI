@@ -22,9 +22,10 @@ graph TD
     subgraph Core Engine Layer
         Cache[(Local Response Cache)]
         Router[3-Tier Smart Router]
-        Groq[Tier 1: Groq Llama 3.3]
-        Gemini[Tier 2: Gemini 1.5 Flash]
-        LocalEng[Tier 3: Local Engine]
+        Resume[Resume Writer & Builder]
+        Scraper[9-Platform Job Engine]
+        CRM[Job Tracker CRM]
+        Analytics[Analytics Engine]
     end
 
     DB[(SQLite - jobhunter.db)]
@@ -35,10 +36,11 @@ graph TD
     Policer --> Sanitizer
     Sanitizer --> Cache
     Cache -- Miss --> Router
-    Router --> Groq
-    Router --> Gemini
-    Router --> LocalEng
-    LocalEng --> DB
+    Router --> Resume
+    Router --> Scraper
+    Router --> CRM
+    Router --> Analytics
+    Resume & Scraper & CRM & Analytics --> DB
 ```
 
 ---
@@ -46,51 +48,50 @@ graph TD
 ## 🛠 Features
 
 1.  **3-Tier Smart Router**: Cascading fallback logic (Groq -> Gemini -> Local Engine) with built-in circuit breakers and **exponential backoff**.
-2.  **Quota Safeguards**: Automatic detection of API exhaustion with immediate failover to Tier 3.
-3.  **Response Caching**: Identical career queries are served from a local cache to save tokens and minimize latency.
-4.  **Zero-Trust Privacy**: Local PII Redaction masks emails, phones, and addresses before cloud processing.
-5.  **Multi-Platform**: Seamless experience across Web and Native Android.
-6.  **Offline First**: Semantic matching works locally using Sentence-Transformers even without API keys.
+2.  **Enterprise Resume Suite**: side-by-side JD analysis, AI bullet point tailoring, and 4 high-fidelity ATS templates (PDF/DOCX export).
+3.  **9-Platform Job Discovery**: Aggregated live feeds from LinkedIn, Indeed, Glassdoor, ZipRecruiter, Google Jobs, Dice, Monster, SimplyHired, and Working Nomads.
+4.  **Application Tracker CRM**: Drag-and-drop Kanban board for managing your job search pipeline.
+5.  **Career Analytics**: Conversion tracking, application velocity, and skill gap visualization.
+6.  **Zero-Trust Privacy**: Local PII Redaction masks sensitive data before any cloud processing.
+7.  **Multi-Platform**: Native experience across Web (React) and Android (Jetpack Compose).
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Enterprise Edition)
 
 ### 1. Prerequisites
-- Python 3.11+
-- Node.js 20+
-- Android Studio (Electric Eel or newer)
-- Docker (Optional)
+- **Python 3.11+**
+- **Node.js 22+**
+- **Android Studio** (for mobile deployment)
+- **Groq & Gemini API Keys** (Optional for offline mode)
 
-### 2. Local Setup
+### 2. Implementation & Setup
 
-#### Backend (FastAPI)
+#### Core & Backend
 ```bash
-# Set PYTHONPATH to the core logic
-$env:PYTHONPATH="core" 
+# Set PYTHONPATH to include core logic
+$env:PYTHONPATH=".;core" 
+
+# Install dependencies
 pip install -r requirements.txt
-python -m playwright install chromium
+
+# Start FastAPI Gateway
 python backend/main.py
 ```
 
-#### Web (Vite)
+#### Web Dashboard
 ```bash
 npm install
 npm run dev
 ```
 
-#### Android (Gradle)
+#### Android Native
 1. Open `mobile/android` in Android Studio.
-2. Build and run the `:app` module.
-
-### 3. Docker Deployment
-```bash
-docker-compose up --build
-```
+2. Build and run `:app` on your device/emulator.
 
 ---
 
-## 🛡️ Resilience & Fallback (Developer Guide)
+## 🛡️ Zero-Trust Privacy & Resilience
 
 JobHunterAI Pro is designed to never fail a user request due to API exhaustion. You can verify the 3-tier logic with these steps:
 
