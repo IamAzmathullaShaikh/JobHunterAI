@@ -1,41 +1,13 @@
-import React, { useState } from 'react';
-import { ExternalLink, MapPin, Briefcase, Building, AlertCircle } from 'lucide-react';
-import { JobListing } from '../types'; // assuming types exist from earlier context
+import React from 'react';
+import { ExternalLink, MapPin, Briefcase, Building } from 'lucide-react';
+import { JobListing } from '../types';
 
 interface JobCardProps {
   job: JobListing;
 }
 
 export const JobCard: React.FC<JobCardProps> = ({ job }) => {
-  const [checking, setChecking] = useState(false);
-  
-  // Requirement: use job.canonical_url fallback to job.raw_url
-  const linkToOpen = job.canonical_url || job.raw_url || job.url;
-  
-  console.log('RENDER_JOB', job);
-  
-  const handleOpenJob = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!linkToOpen || linkToOpen === '#' || linkToOpen.includes('mock')) {
-       window.open(`https://www.google.com/search?q=${encodeURIComponent(job.title + " " + job.company_name + " jobs")}`, '_blank');
-       return;
-    }
-    
-    setChecking(true);
-    try {
-      // Best-effort HEAD check
-      const res = await fetch(linkToOpen, { method: 'HEAD', mode: 'no-cors' });
-      // If it doesn't throw, we assume it's reachable or we are blocked by CORS (opaque response). 
-      // Opaque response is fine, we just open it.
-      window.open(linkToOpen, '_blank');
-    } catch (err) {
-      console.warn('Job link check failed, opening fallback search', err);
-      // Fallback to search
-      window.open(`https://www.google.com/search?q=${encodeURIComponent(job.title + " " + job.company_name + " jobs")}`, '_blank');
-    } finally {
-      setChecking(false);
-    }
-  };
+  const linkToOpen = job.canonical_url || job.url || job.raw_url || '';
 
   const matchScore = job.ai_analysis?.match_score ?? 0;
   let scoreColor = 'bg-slate-800 text-slate-300';
@@ -84,15 +56,28 @@ export const JobCard: React.FC<JobCardProps> = ({ job }) => {
         <span className="text-xs text-slate-500 font-medium">
           {job.date_scraped ? new Date(job.date_scraped).toLocaleDateString() : 'Recent'}
         </span>
-        <button 
-          onClick={handleOpenJob}
-          disabled={checking}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:text-white transition-colors"
-          aria-label={`Open job: ${job.title}`}
-        >
-          {checking ? 'Checking...' : 'Open Job'}
-          <ExternalLink className="w-3.5 h-3.5" />
-        </button>
+        {linkToOpen ? (
+          <a
+            href={linkToOpen}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:text-white transition-colors"
+            aria-label={`Open job: ${job.title}`}
+          >
+            Open Job
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        ) : (
+          <button
+            disabled
+            title="Link unavailable"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 cursor-not-allowed"
+            aria-label="Job link unavailable"
+          >
+            Link unavailable
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );

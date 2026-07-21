@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import * as XLSX from "xlsx";
+import { discoverAndBuild, ScrapeParams } from "./src/server/scraperBridge";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -175,190 +176,46 @@ app.post("/api/profile/parse", async (req, res) => {
   }
 });
 
-// 3. simulated multi-engine scraping & job discovery
+// 3. Real multi-engine scraping via the Python fleet (scripts/scrape_cli.py)
 app.post("/api/scrape", async (req, res) => {
+  const { search_query, location, job_type } = req.body;
+  if (!search_query || !location) {
+    return res.status(400).json({ error: "Search query and location are required." });
+  }
+
+  const params: ScrapeParams = {
+    search_query,
+    location,
+    job_type: job_type || "Full-Time",
+    limit: 10,
+  };
+
   try {
-    const { search_query, location, job_type, candidate_context } = req.body;
-
-    if (!search_query || !location) {
-      return res.status(400).json({ error: "Search query and location are required." });
-    }
-
-    const prompt = `You are an automated multi-engine scraper. We are searching for job listings matching the keyword "${search_query}" in "${location}" for a "${job_type}" role.
-Based on this request and the optional candidate profile below:
-${candidate_context || "No candidate profile uploaded yet."}
-
-Generate 10 highly realistic, detailed job listing records that would be found across 9 popular platforms: LinkedIn, Indeed, Naukri, Foundit, Glassdoor, Google Jobs, Apify Cloud, Internshala, and YC Jobs.
-Ensure each generated job listing has an external unique job ID (portal_id), highly realistic company name, real title, description, application URL (mock this as canonical_url), a raw_url (the original scraped link), and specific source (randomly distribute sources across the 9 platforms).
-Also specify workplace type (Remote, Hybrid, Onsite) and some realistic salary ranges (min, max, currency, raw string).
-Return the result in the requested JSON schema format.`;
-
-    const response = await ai.models.generateContent({
-      model: getModel(req.body.model),
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              job_id_raw: { type: Type.STRING },
-              title: { type: Type.STRING },
-              company_name: { type: Type.STRING },
-              location: { type: Type.STRING },
-              work_place_type: { type: Type.STRING }, // Remote, Hybrid, Onsite
-              job_type: { type: Type.STRING }, // Full-Time, Internship, Apprenticeship
-              source: { type: Type.STRING }, // LinkedIn, Indeed, etc.
-              url: { type: Type.STRING },
-              raw_url: { type: Type.STRING },
-              canonical_url: { type: Type.STRING },
-              portal_id: { type: Type.STRING },
-              description_raw: { type: Type.STRING },
-              salary_min: { type: Type.NUMBER },
-              salary_max: { type: Type.NUMBER },
-              salary_currency: { type: Type.STRING },
-              salary_raw: { type: Type.STRING },
-            },
-            required: [
-              "job_id_raw",
-              "title",
-              "company_name",
-              "location",
-              "work_place_type",
-              "job_type",
-              "source",
-              "url",
-              "description_raw",
-            ],
-          },
-        },
-      },
-    });
-
-    const crawledListings = JSON.parse(response.text || "[]");
-    console.log("[Scraper] Raw crawled listings from AI:", JSON.stringify(crawledListings, null, 2));
-
     const db = loadDB();
-    const existingIds = new Set(db.jobs.map((j) => j.job_id_raw));
-    const newJobsAdded: any[] = [];
-
-    for (const item of crawledListings) {
-      if (!existingIds.has(item.job_id_raw)) {
-        let raw_url = item.raw_url || item.url || '';
-        let resolved_url = item.canonical_url || raw_url;
-        let portal_id = item.portal_id || item.job_id_raw;
-        let needs_validation = false;
-        let http_status = 200;
-        
-        // Simulate scraper redirect resolution
-        if (raw_url && raw_url.includes('google.com')) {
-          http_status = 302;
-          resolved_url = raw_url.replace('google.com/search?q=', 'resolved.com/');
-        } else if (!raw_url) {
-          http_status = 404;
-          needs_validation = true;
-        }
-
-        console.log(`LOG_SCRAPER: ${item.job_id_raw} ${raw_url} ${resolved_url} ${http_status} ${portal_id}`);
-
-        // Compute fingerprint
-        const titleNorm = (item.title || '').toLowerCase().trim();
-        const companyNorm = (item.company_name || '').toLowerCase().trim();
-        const locationNorm = (item.location || '').toLowerCase().trim();
-        const fingerprint = `${titleNorm}::${companyNorm}::${locationNorm}`;
-
-        // Validate canonical_url
-        if (!resolved_url || resolved_url === '#' || resolved_url.includes('mock')) {
-           needs_validation = true;
-        }
-
-        console.log(`LOG_NORMALIZER: ${item.job_id_raw} ${resolved_url} ${portal_id} ${fingerprint} ${!needs_validation}`);
-
-        const id = db.jobs.length > 0 ? Math.max(...db.jobs.map((j) => j.id)) + 1 : 1;
-        const newJob = {
-          id,
-          ...item,
-          raw_url: raw_url,
-          canonical_url: needs_validation ? '' : resolved_url,
-          portal_id: portal_id,
-          needs_validation: needs_validation,
-          is_starred: false,
-          date_scraped: new Date().toISOString(),
-          ai_analysis: null,
-          application: null,
-        };
-
-        console.log(`LOG_DB: ${newJob.id} ${newJob.title} ${newJob.company_name} ${newJob.raw_url} ${newJob.canonical_url} ${newJob.portal_id} ${newJob.needs_validation}`);
-        
-        db.jobs.push(newJob);
-        newJobsAdded.push(newJob);
-      }
+    const newJobs = await discoverAndBuild(params, db.jobs);
+    if (newJobs.length > 0) {
+      db.jobs.push(...newJobs);
+      saveDB(db);
     }
-
-    saveDB(db);
-
-    res.json({
-      scraped_count: crawledListings.length,
-      new_count: newJobsAdded.length,
+    return res.json({
+      scraped_count: newJobs.length,
+      new_count: newJobs.length,
       jobs: db.jobs,
+      message:
+        newJobs.length === 0
+          ? "No new roles found for this search. Try a different query or location."
+          : undefined,
     });
   } catch (error: any) {
-    console.warn("AI Pipeline discovery failed. Using local deterministic fallback.", error);
-    const db = loadDB();
-    const fallbackJobs = [
-      {
-        job_id_raw: `mock-${Date.now()}-1`,
-        portal_id: "TC-01",
-        raw_url: "https://techcorp.com/jobs/1?source=test",
-        canonical_url: "https://techcorp.com/jobs/1",
-        title: "Software Engineer",
-        company_name: "TechCorp",
-        location: "Remote",
-        work_place_type: "Remote",
-        job_type: "Full-Time",
-        source: "LinkedIn",
-        url: "",
-        description_raw: "Looking for a skilled developer with experience in React and Node.js."
-      },
-      {
-        job_id_raw: `mock-${Date.now()}-2`,
-        portal_id: "DI-02",
-        raw_url: "https://datainc.com/careers/2?source=test",
-        canonical_url: "https://datainc.com/careers/2",
-        title: "Backend Developer",
-        company_name: "DataInc",
-        location: "New York, NY",
-        work_place_type: "Hybrid",
-        job_type: "Full-Time",
-        source: "Indeed",
-        url: "",
-        description_raw: "Python and Go backend role with a focus on high concurrency."
-      }
-    ];
-
-    const newJobsAdded: any[] = [];
-    fallbackJobs.forEach((item: any) => {
-        const id = db.jobs.length > 0 ? Math.max(...db.jobs.map((j) => j.id)) + 1 : 1;
-        const newJob = {
-          id,
-          ...item,
-          is_starred: false,
-          date_scraped: new Date().toISOString(),
-          ai_analysis: null,
-          application: null,
-        };
-        db.jobs.push(newJob);
-        newJobsAdded.push(newJob);
-    });
-
-    saveDB(db);
-    res.json({
-      scraped_count: fallbackJobs.length,
-      new_count: newJobsAdded.length,
-      jobs: db.jobs,
-      fallback: true
-    });
+    if (error && error.code === "ENOENT") {
+      console.error("[Scraper] python3 not found:", error.message);
+      return res.status(500).json({
+        error:
+          "Python runtime not found. Install Python 3, then run 'pip install -r requirements.txt' and 'playwright install chromium'. See README > Real Scraping Setup.",
+      });
+    }
+    console.error("[Scraper] subprocess failed:", error.message);
+    return res.status(502).json({ error: `Scraper failed: ${error.message}` });
   }
 });
 
