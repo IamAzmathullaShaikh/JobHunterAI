@@ -1,8 +1,45 @@
+import React, { useState, useEffect } from "react";
+import {
+  Sparkles,
+  Briefcase,
+  Brain,
+  ClipboardList,
+  RefreshCw,
+  Download,
+  Trash2,
+  CheckCircle,
+  HelpCircle,
+  Users,
+  FileText,
+  X,
+  Upload,
+  ShieldCheck,
+  Target,
+  FileSignature,
+  MessageSquare,
+  ListTodo,
+  Settings
+} from "lucide-react";
+import { CandidateProfile, JobListing, ApplicationStatus } from "./types.ts";
 import ResumeDrawer from "./components/ResumeDrawer.tsx";
 import EngineStatusChip from "./components/EngineStatusChip.tsx";
-import { ShieldCheck, Target, FileSignature, MessageSquare, ListTodo, Settings } from "lucide-react";
+import ResumeIngestion from "./components/ResumeIngestion.tsx";
+import ScraperFleet from "./components/ScraperFleet.tsx";
+import JobsTable from "./components/JobsTable.tsx";
+import AnalysisMatrix from "./components/AnalysisMatrix.tsx";
+import KanbanBoard from "./components/KanbanBoard.tsx";
+import ContactFinder from "./components/ContactFinder.tsx";
+import ErrorBoundary from "./components/ErrorBoundary.tsx";
 
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <Dashboard />
+    </ErrorBoundary>
+  );
+}
+
+function Dashboard() {
   const [activeTab, setActiveTab] = useState<"ats" | "cover" | "prep" | "outreach" | "jobs">("ats");
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [jobs, setJobs] = useState<JobListing[]>([]);
@@ -42,7 +79,6 @@ export default function App() {
     loadData();
   }, []);
 
-  // ... Existing handlers (handleProfileParsed, handleJobsDiscovered, etc.) ...
   const handleProfileParsed = (newProfile: CandidateProfile) => {
     setProfile(newProfile);
     showToast("Profile Successfully Mapped!");

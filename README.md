@@ -90,6 +90,17 @@ docker-compose up --build
 
 ---
 
+## 🛡️ Resilience & Fallback (Developer Guide)
+
+JobHunterAI Pro is designed to never fail a user request due to API exhaustion. You can verify the 3-tier logic with these steps:
+
+1. **Tier 1 (Groq)**: Set `GROQ_API_KEY` and perform a match. Look for the Green ⚡ chip.
+2. **Tier 2 (Gemini)**: Unset `GROQ_API_KEY`, set `GEMINI_API_KEY`. Look for the Purple 🧠 chip.
+3. **Tier 3 (Local)**: Unset both keys. The system will use `sentence-transformers` locally. Look for the Slate 💻 chip.
+4. **Caching**: Perform the same match twice. The second response will be near-instant and marked with `local_cache`.
+
+---
+
 ## 🔒 Environment Variables (`.env`)
 ```env
 # AI Providers

@@ -1,14 +1,18 @@
+import os
+import sys
 from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-# Add core/ to sys.path to resolve internal imports
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "core"))
+# Add project root and core/ to sys.path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+sys.path.insert(0, os.path.join(project_root, "core"))
 
-from database.connection import get_db_session
-from api import jobs, profile, ats, cover_letter, interview, outreach, system
+from core.database.connection import get_db_session
+from backend.api import jobs, profile, ats, cover_letter, interview, outreach, system
 
 import logging
 
@@ -76,17 +80,12 @@ app.include_router(system.router)
 
 @app.on_event("startup")
 async def startup_event():
-    from db import init_db
+    from core.db import init_db
     await init_db()
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "JobHunterAI Backend"}
-
-@app.get("/api/jobs", response_model=List[JobListingRead])
-async def get_jobs(db: AsyncSession = Depends(get_db_session)):
-    # Implementation using JobService
-    pass
 
 if __name__ == "__main__":
     import uvicorn

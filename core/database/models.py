@@ -252,8 +252,8 @@ class MatchHistory(Base):
     __tablename__ = "match_history"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    job_id: Mapped[int] = mapped_column(ForeignKey("job_listings.id", ondelete="CASCADE"))
-    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("user_profiles.id", ondelete="CASCADE"))
+    job_id: Mapped[Optional[int]] = mapped_column(ForeignKey("job_listings.id", ondelete="CASCADE"), nullable=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("user_profiles.id", ondelete="CASCADE"), nullable=True)
     match_score: Mapped[float] = mapped_column(Float)
     fit_summary: Mapped[str] = mapped_column(Text)
     keywords_matched: Mapped[Optional[list]] = mapped_column(JSON)
