@@ -5,7 +5,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.jobhunterai.api.ApiClient
 import com.jobhunterai.data.JobListingEntity
-import utils.logger # Placeholder if I had a logger
+import android.util.Log
 
 class MatchAlertWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {

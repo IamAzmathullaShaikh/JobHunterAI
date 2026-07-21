@@ -3,42 +3,48 @@ package com.jobhunterai
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.jobhunterai.api.ApiClient
+import com.jobhunterai.data.DatabaseProvider
+import com.jobhunterai.data.JobRepository
+import com.jobhunterai.ui.JobViewModel
+import com.jobhunterai.ui.screens.JobBoardScreen
 import com.jobhunterai.ui.theme.JobHunterAITheme
 
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import com.jobhunterai.api.ApiClient
-import com.jobhunterai.data.JobListingEntity
-import com.jobhunterai.ui.screens.JobBoardScreen
-
 class MainActivity : ComponentActivity() {
+
+    private val viewModel: JobViewModel by viewModels {
+        object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val database = DatabaseProvider.getDatabase(applicationContext)
+                val repository = JobRepository(ApiClient.instance, database.jobDao())
+                return JobViewModel(repository) as T
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val jobsState = remember { mutableStateOf<List<JobListingEntity>>(emptyList()) }
-
-            LaunchedEffect(Unit) {
-                try {
-                    jobsState.value = ApiClient.instance.getJobs()
-                } catch (e: Exception) {
-                    // Handle error
-                }
-            }
+            val uiState by viewModel.uiState.collectAsState()
 
             JobHunterAITheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    JobBoardScreen(jobs = jobsState.value)
+                    JobBoardScreen(
+                        uiState = uiState,
+                        onRetry = { viewModel.loadJobs() }
+                    )
                 }
             }
         }
