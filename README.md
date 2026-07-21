@@ -1,105 +1,134 @@
-# JobHunterAI
+# JobHunterAI 🚀
 
-JobHunterAI is an automated, local-first job tracking and discovery application. It helps you find relevant jobs, match your resume against them, and track your applications in a streamlined Kanban board. The system is designed to run locally, ensuring your data remains yours, with optional AI capabilities to enhance your job search.
+JobHunterAI is a comprehensive, local-first job tracking and discovery application. It helps you find relevant jobs across multiple engines, match your resume using AI, and manage your applications via a streamlined Kanban board.
 
-## Quick Start
+Designed for privacy and efficiency, it runs locally on your machine, with optional AI enhancements powered by Google Gemini.
 
-### 1. Prerequisites
-- **Node.js**: (v18 or higher)
-- **Git**: to clone the repository
+---
 
-### 2. Local Setup
-1. Clone the repository:
-   \`\`\`bash
-   git clone https://github.com/IamAzmathullaShaikh/JobHunterAI.git
-   cd JobHunterAI
-   \`\`\`
-2. Install dependencies:
-   \`\`\`bash
-   npm install
-   \`\`\`
-3. (Optional) Create a \`.env\` file in the root directory if you plan to use AI features:
-   \`\`\`env
-   GEMINI_API_KEY=your_gemini_api_key
-   \`\`\`
-4. Start the application:
-   \`\`\`bash
-   npm run dev
-   \`\`\`
-   Access the app at \`http://localhost:3000\`.
+## 📂 Repository Structure
 
-### Using Docker
-1. Ensure Docker and Docker Compose are installed.
-2. Run the application:
-   \`\`\`bash
-   docker-compose up --build
-   \`\`\`
-
-## Project Structure
-- \`/src\`: Frontend React code (Vite + Tailwind CSS).
-- \`/server.ts\`: Backend Express server handling API routes.
-- \`/database\`: Local JSON database (db.json) handling data persistence.
-- \`package.json\`: Project dependencies and scripts.
-
-## Installation and Requirements
-- **Node.js**: Requires Node.js version 18+.
-- **NPM**: Package manager to run scripts.
-
-## Running the System
-- **Development**: Run \`npm run dev\` to start both the Vite dev server and Express backend.
-- **Production Build**: Run \`npm run build\` and then \`npm start\`.
-- **AI Modules**: AI matching is optional and uses \`GEMINI_API_KEY\` when present. Job discovery uses the real Python + Playwright scraper fleet (see **Real Scraping Setup**); the app never fabricates listings.
-
-## Real Scraping Setup
-
-The scraper fleet is Python + Playwright. Install it once alongside the Node app:
-
-```bash
-pip install -r requirements.txt
-playwright install chromium
+```text
+JobHunterAI/
+├── src/                # Frontend React code (Vite + Tailwind CSS)
+│   ├── components/     # UI Components (Kanban, JobCards, etc.)
+│   ├── pages/          # Main application views
+│   └── server/         # Node.js server-side bridges
+├── scrapers/           # Python Playwright scraper fleet
+├── scripts/            # Orchestration and CLI bridge scripts
+├── database/           # SQLite models and connection logic (Python)
+├── config/             # System and environment settings
+├── streamlit/          # Optional Streamlit dashboard
+├── server.ts           # Main Express backend entry point
+├── db.json             # Local JSON storage (Node.js backend)
+├── jobhunter.db        # Local SQLite storage (Python backend)
+├── Dockerfile          # Multi-stage build for production
+├── docker-compose.yml  # Container orchestration
+└── .github/workflows/  # CI/CD pipelines
 ```
 
-The Node server invokes `python3 scripts/scrape_cli.py` on each search. Override
-the interpreter with `PYTHON_BIN=/path/to/python` if `python3` is not on PATH.
+---
 
-Live scraping success depends on network access and each site's anti-bot
-defences; results can legitimately be empty from restricted networks.
+## 🛠 Requirements & Dependencies
 
-### Active engines
+### Runtime Environments
+- **Node.js**: v20.x or higher
+- **Python**: v3.10.x or higher
+- **Docker**: (Optional) For containerized deployment
 
-Only the engines that reliably return real postings are active by default:
-**LinkedIn**, **Glassdoor**, and **Apify Cloud**. Apify returns nothing until you
-add a free `APIFY_API_TOKEN` to `.env`, after which it is the most robust engine
-(its cloud handles anti-bot). The remaining scrapers (Indeed, Naukri, Foundit,
-Google Jobs, Internshala, YC Jobs) are still in the codebase but disabled in
-`scrapers/manager.py` because they get blocked or return empty; add them back to
-`default_scrapers` to re-enable.
+### Key Libraries
+- **Frontend/Backend**: React, Express, Vite, Google Gen AI, Tailwind CSS, Lucide React, Motion.
+- **Scraper Fleet**: Playwright, BeautifulSoup4, SQLAlchemy, Pydantic, Loguru.
 
-## Troubleshooting
+---
 
-### Job Links / Scraping
-**Behaviour**: `POST /api/scrape` runs the real Python + Playwright scraper fleet
-(`scripts/scrape_cli.py` -> `scrapers/manager.py`). Each listing stores the real
-posting URL in `canonical_url`, and the UI opens it directly in a new tab. If the
-scrapers return nothing (site blocked / no network), the app shows an honest
-empty result -- it never fabricates listings.
-**Verification**: watch `server.ts` stdout for `[Scraper]` errors, and the Python
-fleet logs on stderr for per-engine counts.
+## 🚀 Local Setup & Running
 
-## Testing
-Currently, the pipeline can be tested by inspecting the console logs during the ingestion process:
-- Scraper logs output the raw generated listings.
-- Normalizer logs the addition of unique jobs to the local DB.
+### 1. Clone the Repository
+```bash
+git clone https://github.com/IamAzmathullaShaikh/JobHunterAI.git
+cd JobHunterAI
+```
 
-## Docker and CI/CD
-- **Docker Compose**: Sets up the app environment easily with a simple \`docker-compose up\`.
-- **GitHub Actions**: (If configured) Automates linting and builds on every push to the \`main\` branch.
+### 2. Node.js Setup (Frontend & Main Backend)
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Create a `.env` file and add your Gemini API Key:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key
+   APIFY_API_TOKEN=your_apify_token (Optional)
+   ```
+3. Start the development server (runs both Vite and Express):
+   ```bash
+   npm run dev
+   ```
+   Access the app at `http://localhost:3000`.
 
-## Contribution Guidelines
-1. Branch naming: \`feature/feature-name\` or \`fix/bug-fix-name\`.
-2. Commit message format: \`type(scope): description\` (e.g., \`fix(scraper): capture resolved URL\`).
-3. Rule: Maintain local-first data integrity.
+### 3. Python Setup (Scraper Fleet)
+The scrapers are invoked by the Node server but require their own environment:
+1. (Recommended) Create a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+2. Install requirements:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Install Playwright browsers:
+   ```bash
+   playwright install chromium
+   ```
 
-## Credits and License
-Maintained by IamAzmathullaShaikh.
-Released under the MIT License.
+### 4. Optional Streamlit Dashboard
+If you want to use the alternative Python-based dashboard:
+```bash
+streamlit run streamlit/app.py
+```
+
+---
+
+## 🐳 Deployment Options
+
+### Docker Deployment
+The project includes a multi-stage Dockerfile that bundles both Node.js and the Python scraper fleet.
+
+1. **Build and Run with Docker Compose**:
+   ```bash
+   docker-compose up --build
+   ```
+2. **Environment Variables**:
+   Ensure your `.env` file contains the necessary API keys before running the build.
+
+### CI/CD (GitHub Actions)
+The repository is configured with a CI/CD pipeline in `.github/workflows/ci-cd.yml`:
+- **validate-codebase**: Lints the TypeScript code and performs a test build on every push to `main`.
+- **build-docker-image**: Automatically verifies that the Docker image builds successfully.
+
+---
+
+## 🔍 Troubleshooting
+
+### Scraper Failures
+- **Python Not Found**: Ensure `python3` is in your PATH. If you use a different name, set `PYTHON_BIN` in your `.env`.
+- **Playwright Errors**: If scrapers fail to launch, try running `playwright install --with-deps chromium`.
+- **Empty Results**: Some sites have strong anti-bot protections. Using an `APIFY_API_TOKEN` improves reliability via cloud scraping.
+
+### Database Issues
+- The Node.js app uses `db.json` for persistence. If the file becomes corrupted, you can safely delete it to reset (you will lose tracked jobs).
+- The Python modules use `jobhunter.db`.
+
+---
+
+## 🤝 Contribution Guidelines
+1. Branch naming: `feature/feature-name` or `fix/bug-fix-name`.
+2. Commit message format: `type(scope): description` (e.g., `fix(scraper): capture resolved URL`).
+3. Maintain local-first data integrity.
+
+---
+
+## 📜 Credits and License
+Maintained by **IamAzmathullaShaikh**.
+Released under the **MIT License**.
