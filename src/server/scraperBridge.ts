@@ -1,3 +1,6 @@
+import { spawn } from 'child_process';
+import path from 'path';
+
 export interface ScrapedJob {
   job_id_raw: string;
   title: string;
@@ -74,4 +77,66 @@ export function buildNewJobs(scraped: ScrapedJob[], existingJobs: any[]): any[] 
     newJobs.push(mapScrapedJob(item, maxId));
   }
   return newJobs;
+}
+
+export interface RunScraperOpts {
+  python?: string;
+  script?: string;
+  timeoutMs?: number;
+}
+
+export function runScraper(params: ScrapeParams, opts: RunScraperOpts = {}): Promise<ScrapedJob[]> {
+  const python = opts.python || process.env.PYTHON_BIN || 'python3';
+  const script = opts.script || path.join(process.cwd(), 'scripts', 'scrape_cli.py');
+  const timeoutMs = opts.timeoutMs ?? 120000;
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(python, [script], { stdio: ['pipe', 'pipe', 'pipe'] });
+    let out = '';
+    let err = '';
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      settled = true;
+      child.kill('SIGKILL');
+      reject(new Error('Scraper timed out'));
+    }, timeoutMs);
+
+    child.stdout.on('data', (d) => { out += d.toString(); });
+    child.stderr.on('data', (d) => { err += d.toString(); });
+
+    child.on('error', (e) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(e);
+    });
+
+    child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (code !== 0) {
+        reject(new Error(`Scraper exited ${code}: ${err.slice(-500)}`));
+        return;
+      }
+      try {
+        resolve(JSON.parse(out || '[]'));
+      } catch (e) {
+        reject(new Error(`Bad scraper JSON: ${(e as Error).message}`));
+      }
+    });
+
+    child.stdin.write(JSON.stringify(params));
+    child.stdin.end();
+  });
+}
+
+export async function discoverAndBuild(
+  params: ScrapeParams,
+  existingJobs: any[],
+  opts?: RunScraperOpts
+): Promise<any[]> {
+  const scraped = await runScraper(params, opts);
+  return buildNewJobs(scraped, existingJobs);
 }
