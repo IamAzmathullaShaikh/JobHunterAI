@@ -1,0 +1,1 @@
+# JobHunterAI Core Module

@@ -5,8 +5,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import String, Text, DateTime, Float, Boolean, ForeignKey, Index, UniqueConstraint, Integer
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID, ARRAY
+from sqlalchemy import String, Text, DateTime, Float, Boolean, ForeignKey, Index, UniqueConstraint, Integer, JSON, Enum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 import enum
 
@@ -38,7 +37,7 @@ class JobListing(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     # Optional multi-tenant identifier – set to NULL for single-user mode
-    user_id: Mapped[Optional[UUID]] = mapped_column(PG_UUID(as_uuid=True), nullable=True, index=True)
+    user_id: Mapped[Optional[UUID]] = mapped_column(String(36), nullable=True, index=True)
 
     job_id_raw: Mapped[str] = mapped_column(String(100), unique=True, index=True)  # external site ID
     title: Mapped[str] = mapped_column(String(255), index=True)
@@ -115,7 +114,7 @@ class JobApplication(Base):
     job_id: Mapped[int] = mapped_column(ForeignKey("job_listings.id", ondelete="CASCADE"), unique=True)
 
     status: Mapped[ApplicationStatus] = mapped_column(
-        sa_enum=ApplicationStatus, default=ApplicationStatus.IDENTIFIED
+        Enum(ApplicationStatus), default=ApplicationStatus.IDENTIFIED
     )
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
@@ -162,7 +161,7 @@ class LLMCache(Base):
     # SHA-256 hex of the raw resume text
     hash: Mapped[str] = mapped_column(String(64), unique=True, index=False)
     # The parsed payload (same shape as ResumeParserOutput) stored as JSONB
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -173,7 +172,7 @@ class SkillRecommendation(Base):
     __tablename__ = "skill_recommendations"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[Optional[UUID]] = mapped_column(PG_UUID(as_uuid=True), nullable=True, index=True)
+    user_id: Mapped[Optional[UUID]] = mapped_column(String(36), nullable=True, index=True)
     suggested_skill: Mapped[str] = mapped_column(String(100), nullable=False)
     score: Mapped[float] = mapped_column(Float, nullable=False)   # 0-1 relevance
     created_at: Mapped[datetime] = mapped_column(
@@ -201,6 +200,22 @@ class ResumeVersion(Base):
 
     # Relationships
     job: Mapped["JobListing"] = relationship(back_populates="resume_versions")
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    full_name: Mapped[Optional[str]] = mapped_column(String(255))
+    total_experience_years: Mapped[Optional[float]] = mapped_column(Float)
+    education: Mapped[Optional[list]] = mapped_column(JSON)
+    key_skills: Mapped[Optional[list]] = mapped_column(JSON)
+    recommended_search_queries: Mapped[Optional[list]] = mapped_column(JSON)
+    experience_highlights: Mapped[Optional[list]] = mapped_column(JSON)
+    raw_resume_text: Mapped[Optional[str]] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
 
 
 class CompanySnapshot(Base):
