@@ -5,9 +5,10 @@ type EngineSource = "groq_ai" | "gemini_ai" | "local_engine";
 interface Props {
   source?: EngineSource;
   latency?: number;
+  quotaSafe?: boolean;
 }
 
-export default function EngineStatusChip({ source, latency }: Props) {
+export default function EngineStatusChip({ source, latency, quotaSafe = true }: Props) {
   if (!source) return null;
 
   const config = {
@@ -19,11 +20,18 @@ export default function EngineStatusChip({ source, latency }: Props) {
   const { label, color, icon } = config[source] || config.local_engine;
 
   return (
-    <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${color}`}>
-      <span>{icon}</span>
-      <span>{label}</span>
-      {latency !== undefined && (
-        <span className="opacity-60 ml-1 border-l border-current pl-1.5 font-mono">{latency}ms</span>
+    <div className="flex items-center gap-2">
+      <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${color}`}>
+        <span>{icon}</span>
+        <span>{label}</span>
+        {latency !== undefined && (
+          <span className="opacity-60 ml-1 border-l border-current pl-1.5 font-mono">{latency}ms</span>
+        )}
+      </div>
+      {!quotaSafe && (
+        <span className="text-[9px] bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 rounded uppercase font-black tracking-tighter animate-pulse">
+          ⚠️ Quota Reached
+        </span>
       )}
     </div>
   );

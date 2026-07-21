@@ -15,10 +15,12 @@ graph TD
 
     subgraph Security & API Layer
         API[FastAPI Gateway]
+        Policer[Request Policer - Size & Quota]
         Sanitizer[Local PII Redactor]
     end
 
     subgraph Core Engine Layer
+        Cache[(Local Response Cache)]
         Router[3-Tier Smart Router]
         Groq[Tier 1: Groq Llama 3.3]
         Gemini[Tier 2: Gemini 1.5 Flash]
@@ -29,8 +31,10 @@ graph TD
 
     Web --> API
     Mobile --> API
-    API --> Sanitizer
-    Sanitizer --> Router
+    API --> Policer
+    Policer --> Sanitizer
+    Sanitizer --> Cache
+    Cache -- Miss --> Router
     Router --> Groq
     Router --> Gemini
     Router --> LocalEng
@@ -41,11 +45,12 @@ graph TD
 
 ## 🛠 Features
 
-1.  **3-Tier Smart Router**: Cascading fallback logic (Groq -> Gemini -> Local Engine) with built-in circuit breakers.
-2.  **Zero-Trust Privacy**: Local PII Redaction masks emails, phones, and addresses before cloud processing.
-3.  **Multi-Platform**: Seamless experience across Web and Native Android.
-4.  **10 Automation Workflows**: ATS Matching, Cover Letter generation, Interview Prep, Live Scraping, and more.
-5.  **Offline First**: Semantic matching works locally using Sentence-Transformers even without API keys.
+1.  **3-Tier Smart Router**: Cascading fallback logic (Groq -> Gemini -> Local Engine) with built-in circuit breakers and **exponential backoff**.
+2.  **Quota Safeguards**: Automatic detection of API exhaustion with immediate failover to Tier 3.
+3.  **Response Caching**: Identical career queries are served from a local cache to save tokens and minimize latency.
+4.  **Zero-Trust Privacy**: Local PII Redaction masks emails, phones, and addresses before cloud processing.
+5.  **Multi-Platform**: Seamless experience across Web and Native Android.
+6.  **Offline First**: Semantic matching works locally using Sentence-Transformers even without API keys.
 
 ---
 

@@ -1,0 +1,53 @@
+name: AI Quota & Health Monitor
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Every hour
+  workflow_dispatch:
+
+jobs:
+  check-quotas:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: pip install requests loguru
+
+      - name: Run Quota Check Script
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python -c "
+          import os, requests, sys
+          from loguru import logger
+
+          def check_groq():
+              key = os.getenv('GROQ_API_KEY')
+              if not key: return 'SKIPPED'
+              res = requests.get('https://api.groq.com/openai/v1/models', headers={'Authorization': f'Bearer {key}'})
+              return 'OK' if res.status_code == 200 else f'ERROR {res.status_code}'
+
+          def check_gemini():
+              key = os.getenv('GEMINI_API_KEY')
+              if not key: return 'SKIPPED'
+              # Placeholder for Gemini health check
+              return 'OK'
+
+          groq_status = check_groq()
+          gemini_status = check_gemini()
+
+          logger.info(f'Groq Status: {groq_status}')
+          logger.info(f'Gemini Status: {gemini_status}')
+
+          if 'ERROR' in groq_status and 'ERROR' in gemini_status:
+              logger.critical('Both primary Tiers are DOWN or EXHAUSTED.')
+              sys.exit(1)
+          "

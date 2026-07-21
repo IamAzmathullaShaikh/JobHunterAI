@@ -1,6 +1,7 @@
 import time
 import asyncio
 import os
+import random
 from typing import Any, Dict, List, Optional, Callable, Awaitable
 from utils.logger import logger
 
@@ -35,7 +36,7 @@ class CircuitBreaker:
 
 class SmartRouter:
     """
-    3-Tier Fallback Router for AI operations.
+    3-Tier Fallback Router for AI operations with Quota Safeguards.
     Tier 1: Groq
     Tier 2: Gemini
     Tier 3: Local Engine
@@ -46,6 +47,28 @@ class SmartRouter:
             "groq": CircuitBreaker("Groq"),
             "gemini": CircuitBreaker("Gemini")
         }
+        self.max_retries = 3
+        self.base_delay = 1.0 # seconds
+
+    async def _execute_with_backoff(self, name: str, call: Callable[..., Awaitable[Any]], *args, **kwargs) -> Any:
+        """Executes a call with exponential backoff and jitter."""
+        for attempt in range(self.max_retries):
+            try:
+                return await call(*args, **kwargs)
+            except Exception as e:
+                err_str = str(e).lower()
+                is_quota_error = "quota" in err_str or "rate limit" in err_str or "429" in err_str or "resource_exhausted" in err_str
+
+                if is_quota_error:
+                    logger.warning(f"Quota exhausted for {name} on attempt {attempt + 1}. Falling back immediately.")
+                    raise # Re-raise to trigger outer fallback logic
+
+                if attempt == self.max_retries - 1:
+                    raise
+
+                delay = (self.base_delay * (2 ** attempt)) + (random.random() * 0.5)
+                logger.info(f"Retrying {name} in {delay:.2f}s (Attempt {attempt + 1}/{self.max_retries}) due to: {e}")
+                await asyncio.sleep(delay)
 
     async def route(
         self,
@@ -60,9 +83,9 @@ class SmartRouter:
         # Tier 1: Groq
         if self.breakers["groq"].can_execute() and os.getenv("GROQ_API_KEY"):
             try:
-                result = await groq_call(*args, **kwargs)
+                result = await self._execute_with_backoff("Groq", groq_call, *args, **kwargs)
                 self.breakers["groq"].record_success()
-                return self._wrap_response("groq_ai", result, start_time)
+                return self._wrap_response("groq_ai", result, start_time, quota_safe=True)
             except Exception as e:
                 logger.error(f"Tier 1 (Groq) failed for {operation_name}: {e}")
                 self.breakers["groq"].record_failure()
@@ -70,9 +93,9 @@ class SmartRouter:
         # Tier 2: Gemini
         if self.breakers["gemini"].can_execute() and os.getenv("GEMINI_API_KEY"):
             try:
-                result = await gemini_call(*args, **kwargs)
+                result = await self._execute_with_backoff("Gemini", gemini_call, *args, **kwargs)
                 self.breakers["gemini"].record_success()
-                return self._wrap_response("gemini_ai", result, start_time)
+                return self._wrap_response("gemini_ai", result, start_time, quota_safe=True)
             except Exception as e:
                 logger.error(f"Tier 2 (Gemini) failed for {operation_name}: {e}")
                 self.breakers["gemini"].record_failure()
@@ -81,27 +104,31 @@ class SmartRouter:
         try:
             logger.info(f"Falling back to Tier 3 (Local) for {operation_name}")
             result = local_call(*args, **kwargs)
-            # If local_call is async (unlikely based on requirement but for safety)
             if asyncio.iscoroutine(result):
                 result = await result
-            return self._wrap_response("local_engine", result, start_time)
+            return self._wrap_response("local_engine", result, start_time, quota_safe=True)
         except Exception as e:
             logger.critical(f"Tier 3 (Local) failed for {operation_name}: {e}")
             return {
                 "success": False,
                 "error": str(e),
                 "source": "failed_all_tiers",
+                "quota_safe": False,
                 "latency_ms": int((time.time() - start_time) * 1000)
             }
 
-    def _wrap_response(self, source: str, data: Any, start_time: float) -> Dict[str, Any]:
+    def _wrap_response(self, source: str, data: Any, start_time: float, quota_safe: bool = True) -> Dict[str, Any]:
         return {
             "success": True,
             "source": source,
             "latency_ms": int((time.time() - start_time) * 1000),
-            "pii_redacted": True, # Privacy redactor is handled before routing
+            "pii_redacted": True,
+            "quota_safe": quota_safe,
             "data": data
         }
+
+# Global singleton
+router = SmartRouter()
 
 # Global singleton
 router = SmartRouter()

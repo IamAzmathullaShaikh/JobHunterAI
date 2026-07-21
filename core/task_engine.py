@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from smart_router import router
 from privacy import redactor
+from caching import AICache
 from utils.logger import logger
 from database.models import JobListing, UserProfile, MatchHistory, TelemetryLog
 
@@ -28,11 +29,22 @@ def get_local_model():
 
 class TaskEngine:
     """
-    Implements the 10 core career automation workflows using the 3-Tier fallback logic.
+    Implements the 10 core career automation workflows using the 3-Tier fallback logic
+    with Token Policing and persistent caching.
     """
 
     def __init__(self, db_session: AsyncSession):
         self.db = db_session
+        self.cache = AICache(db_session)
+
+    def _truncate_text(self, text: str, max_chars: int = 4000) -> str:
+        """Enforces token safeguards by truncating large inputs."""
+        if not text:
+            return ""
+        if len(text) <= max_chars:
+            return text
+        logger.warning(f"Text too large ({len(text)} chars). Truncating to {max_chars} chars for quota safety.")
+        return text[:max_chars] + "... [Truncated for Token Safety]"
 
     # --- Workflow 1: PDF Resume Parsing ---
     async def parse_resume_pdf(self, file_path: str) -> Dict[str, Any]:
@@ -44,8 +56,11 @@ class TaskEngine:
                 for page in pdf.pages:
                     text += page.extract_text() or ""
 
-            # Simple heuristic parsing (can be enhanced by LLM in a separate step if desired)
-            # For this workflow requirement, it's Tier 3 (Local)
+            # Check cache first for identical resume text
+            cached = await self.cache.get(text[:5000]) # Cache based on first 5k chars
+            if cached:
+                return {"success": True, "source": "local_cache", "data": cached}
+
             return {
                 "success": True,
                 "source": "local_pypdf",
@@ -60,47 +75,51 @@ class TaskEngine:
 
     # --- Workflow 2: ATS Score & Gap Analysis ---
     async def analyze_ats_fit(self, resume_text: str, job_description: str) -> Dict[str, Any]:
-        """Workflow 2: 3-Tiered ATS analysis."""
+        """Workflow 2: 3-Tiered ATS analysis with Cache & Token policing."""
 
-        # Redact PII first
-        redacted_resume, mapping = redactor.redact(resume_text)
+        # 1. Policing: Truncate inputs
+        safe_resume = self._truncate_text(resume_text)
+        safe_job = self._truncate_text(job_description)
+
+        # 2. Caching: Check if this pair has been matched before
+        cache_key = f"ats_match_{safe_resume[:1000]}_{safe_job[:1000]}"
+        cached = await self.cache.get(cache_key)
+        if cached:
+            return {"success": True, "source": "local_cache", "data": cached}
+
+        # 3. Privacy: Redact PII
+        redacted_resume, mapping = redactor.redact(safe_resume)
 
         async def groq_call():
             from ai.matcher import JobMatcher
-            matcher = JobMatcher() # Uses settings.GROQ_MODEL
-            return await matcher.analyze_fit(job_description, redacted_resume)
+            matcher = JobMatcher()
+            return await matcher.analyze_fit(safe_job, redacted_resume)
 
         async def gemini_call():
-            from ai.matcher import JobMatcher
-            # We'll assume JobMatcher can be told which provider to use or we have another one
-            # For now, let's use a generic LLM call if we have multiple clients
-            from ai.llm_client import get_llm_client
-            client = get_llm_client() # Needs to support provider selection
-            # Placeholder for direct Gemini logic if JobMatcher is Groq-only
-            # In real implementation, JobMatcher should be refactored to use the router
-            return await groq_call() # Temporary redirect until matcher is refactored
+            # In a full implementation, we'd have a specific Gemini matcher
+            return await groq_call()
 
         def local_call():
-            # Vector embedding based match
             model = get_local_model()
             if not model:
                 return {"match_score": 0, "fit_summary": "Local model unavailable."}
 
-            embeddings = model.encode([redacted_resume, job_description])
+            embeddings = model.encode([redacted_resume, safe_job])
             from sklearn.metrics.pairwise import cosine_similarity
             score = float(cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]) * 100
 
             return {
                 "match_score": round(score, 1),
                 "fit_summary": "Semantic match calculated locally using MiniLM.",
-                "keywords_matched": [], # Would need TF-IDF for keywords
+                "keywords_matched": [],
                 "keywords_missing": []
             }
 
         result = await router.route("ats_analysis", groq_call, gemini_call, local_call)
 
-        # If successful, save to history
+        # 4. Persistence & Caching
         if result["success"]:
+            await self.cache.set(cache_key, result["data"])
             history = MatchHistory(
                 match_score=result["data"].get("match_score", 0),
                 fit_summary=result["data"].get("fit_summary", ""),
@@ -134,10 +153,18 @@ class TaskEngine:
 
     # --- Workflow 4: Tailored Cover Letter ---
     async def generate_cover_letter(self, resume_text: str, job_details: str) -> Dict[str, Any]:
-        """Workflow 4: 3-Tiered cover letter generation."""
-        redacted_resume, _ = redactor.redact(resume_text)
+        """Workflow 4: 3-Tiered cover letter generation with Caching."""
 
-        prompt = f"Write a professional cover letter based on this resume: {redacted_resume} and this job: {job_details}"
+        safe_resume = self._truncate_text(resume_text, 3000)
+        safe_job = self._truncate_text(job_details, 3000)
+
+        cache_key = f"cover_letter_{safe_resume[:500]}_{safe_job[:500]}"
+        cached = await self.cache.get(cache_key)
+        if cached:
+            return {"success": True, "source": "local_cache", "data": cached}
+
+        redacted_resume, _ = redactor.redact(safe_resume)
+        prompt = f"Write a professional cover letter based on this resume: {redacted_resume} and this job: {safe_job}"
 
         async def llm_call():
             from ai.llm_client import get_llm_client
@@ -146,14 +173,21 @@ class TaskEngine:
 
         def local_call():
             template = Template("Dear Hiring Manager, I am writing to express interest in the position at {{ company }}. My background in {{ skills }} makes me a strong fit...")
-            # Extract basic info locally
             return template.render(company="the company", skills="relevant technologies")
 
-        return await router.route("cover_letter", llm_call, llm_call, local_call)
+        result = await router.route("cover_letter", llm_call, llm_call, local_call)
+        if result["success"]:
+            await self.cache.set(cache_key, result["data"])
+        return result
 
     # --- Workflow 5: Recruiter Outreach DM ---
     async def generate_outreach(self, target_role: str, company: str) -> Dict[str, Any]:
         """Workflow 5: 3-Tiered outreach message generation."""
+        cache_key = f"outreach_{target_role}_{company}"
+        cached = await self.cache.get(cache_key)
+        if cached:
+            return {"success": True, "source": "local_cache", "data": cached}
+
         prompt = f"Draft a short, professional LinkedIn outreach message for a {target_role} position at {company}."
 
         async def llm_call():
@@ -164,12 +198,21 @@ class TaskEngine:
         def local_call():
             return f"Hi [Name], I noticed the {target_role} opening at {company} and would love to connect..."
 
-        return await router.route("outreach", llm_call, llm_call, local_call)
+        result = await router.route("outreach", llm_call, llm_call, local_call)
+        if result["success"]:
+            await self.cache.set(cache_key, result["data"])
+        return result
 
     # --- Workflow 6: Interview Q&A Prep ---
     async def prepare_interview(self, job_description: str) -> Dict[str, Any]:
         """Workflow 6: 3-Tiered interview preparation."""
-        prompt = f"Generate 5 technical and 3 behavioral interview questions with suggested answers for this job: {job_description}"
+        safe_job = self._truncate_text(job_description, 4000)
+        cache_key = f"interview_prep_{safe_job[:1000]}"
+        cached = await self.cache.get(cache_key)
+        if cached:
+            return {"success": True, "source": "local_cache", "data": cached}
+
+        prompt = f"Generate 5 technical and 3 behavioral interview questions with suggested answers for this job: {safe_job}"
 
         async def llm_call():
             from ai.llm_client import get_llm_client
@@ -179,7 +222,10 @@ class TaskEngine:
         def local_call():
             return "1. Tell me about yourself. 2. What are your strengths? 3. Why do you want this job?"
 
-        return await router.route("interview_prep", llm_call, llm_call, local_call)
+        result = await router.route("interview_prep", llm_call, llm_call, local_call)
+        if result["success"]:
+            await self.cache.set(cache_key, result["data"])
+        return result
 
     # --- Workflow 7: Voice Mock Interview ---
     async def mock_interview_voice(self, audio_data: Any) -> Dict[str, Any]:
