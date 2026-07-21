@@ -9,10 +9,11 @@ from typing import List
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "core"))
 
 from database.connection import get_db_session
-from api import jobs, profile
+from api import jobs, profile, ats, cover_letter, interview, outreach, system
 
-app = FastAPI(title="JobHunterAI API", version="2.0.0")
+app = FastAPI(title="JobHunterAI Pro", version="3.0.0")
 
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,8 +22,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Register Routers
 app.include_router(jobs.router)
 app.include_router(profile.router)
+app.include_router(ats.router)
+app.include_router(cover_letter.router)
+app.include_router(interview.router)
+app.include_router(outreach.router)
+app.include_router(system.router)
+
+@app.on_event("startup")
+async def startup_event():
+    from db import init_db
+    await init_db()
 
 @app.get("/health")
 async def health_check():
