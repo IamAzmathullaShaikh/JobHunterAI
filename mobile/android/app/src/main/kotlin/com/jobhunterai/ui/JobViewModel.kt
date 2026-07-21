@@ -9,9 +9,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+import com.jobhunterai.data.JobApplicationEntity
+import kotlinx.coroutines.flow.combine
+
 sealed class JobUiState {
     object Loading : JobUiState()
-    data class Success(val jobs: List<JobListingEntity>) : JobUiState()
+    data class Success(val jobs: List<JobListingEntity>, val applications: List<JobApplicationEntity>) : JobUiState()
     data class Error(val message: String) : JobUiState()
 }
 
@@ -21,28 +24,26 @@ class JobViewModel(private val repository: JobRepository) : ViewModel() {
     val uiState: StateFlow<JobUiState> = _uiState.asStateFlow()
 
     init {
-        loadJobs()
+        loadData()
     }
 
-    fun loadJobs() {
+    fun loadData() {
         viewModelScope.launch {
             _uiState.value = JobUiState.Loading
             try {
-                // First try to refresh from API
                 repository.refreshJobs()
-            } catch (e: Exception) {
-                // If API fails, we still have local data (handled by flow)
-                // but we might want to show an error message if local is also empty
-            }
+            } catch (e: Exception) {}
 
-            // Observe local database
-            repository.getLocalJobs().collect { jobs ->
-                if (jobs.isEmpty()) {
-                    _uiState.value = JobUiState.Error("No jobs found. Please try again later.")
-                } else {
-                    _uiState.value = JobUiState.Success(jobs)
-                }
+            combine(
+                repository.getLocalJobs(),
+                repository.getLocalApplications()
+            ) { jobs, apps ->
+                JobUiState.Success(jobs, apps)
+            }.collect { state ->
+                _uiState.value = state
             }
         }
     }
+
+    fun loadJobs() = loadData()
 }

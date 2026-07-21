@@ -1,9 +1,53 @@
+import React, { useState, useEffect } from "react";
+import {
+  Sparkles,
+  Briefcase,
+  Brain,
+  ClipboardList,
+  RefreshCw,
+  Download,
+  Trash2,
+  CheckCircle,
+  HelpCircle,
+  Users,
+  FileText,
+  X,
+  Upload,
+  ShieldCheck,
+  Target,
+  FileSignature,
+  MessageSquare,
+  ListTodo,
+  Settings,
+  BarChart3,
+  Layout
+} from "lucide-react";
+import { CandidateProfile, JobListing, ApplicationStatus } from "./types.ts";
 import ResumeDrawer from "./components/ResumeDrawer.tsx";
 import EngineStatusChip from "./components/EngineStatusChip.tsx";
-import { ShieldCheck, Target, FileSignature, MessageSquare, ListTodo, Settings } from "lucide-react";
+import ResumeIngestion from "./components/ResumeIngestion.tsx";
+import ScraperFleet from "./components/ScraperFleet.tsx";
+import JobsTable from "./components/JobsTable.tsx";
+import AnalysisMatrix from "./components/AnalysisMatrix.tsx";
+import KanbanBoard from "./components/KanbanBoard.tsx";
+import ContactFinder from "./components/ContactFinder.tsx";
+import ErrorBoundary from "./components/ErrorBoundary.tsx";
+
+import ResumeWriter from "./components/ResumeWriter.tsx";
+import ResumeBuilder from "./components/ResumeBuilder.tsx";
+import RecruiterFinder from "./components/RecruiterFinder.tsx";
+import AnalyticsDashboard from "./components/AnalyticsDashboard.tsx";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"ats" | "cover" | "prep" | "outreach" | "jobs">("ats");
+  return (
+    <ErrorBoundary>
+      <Dashboard />
+    </ErrorBoundary>
+  );
+}
+
+function Dashboard() {
+  const [activeTab, setActiveTab] = useState<"ats" | "writer" | "builder" | "cover" | "prep" | "recruiters" | "jobs" | "kanban" | "analytics">("ats");
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [resumeText, setResumeText] = useState("");
@@ -18,23 +62,30 @@ export default function App() {
     async function loadData() {
       setIsLoading(true);
       try {
-        const [pRes, jRes, tRes] = await Promise.all([
+        const responses = await Promise.allSettled([
           fetch("/api/profile"),
           fetch("/api/jobs"),
           fetch("/api/system/telemetry")
         ]);
 
-        const [pData, jData, tData] = await Promise.all([
-          pRes.json(),
-          jRes.json(),
-          tRes.json()
-        ]);
+        const [pRes, jRes, tRes] = responses;
 
-        if (pData.profile) setProfile(pData.profile);
-        setJobs(jData.jobs || []);
-        setTelemetry(tData);
+        if (pRes.status === "fulfilled" && pRes.value.ok) {
+          const pData = await pRes.value.json();
+          if (pData.profile) setProfile(pData.profile);
+        }
+
+        if (jRes.status === "fulfilled" && jRes.value.ok) {
+          const jData = await jRes.value.json();
+          setJobs(jData.jobs || []);
+        }
+
+        if (tRes.status === "fulfilled" && tRes.value.ok) {
+          const tData = await tRes.value.json();
+          setTelemetry(tData);
+        }
       } catch (err) {
-        console.error("Error loading system state:", err);
+        console.error("Critical error during data ingestion:", err);
       } finally {
         setIsLoading(false);
       }
@@ -42,7 +93,6 @@ export default function App() {
     loadData();
   }, []);
 
-  // ... Existing handlers (handleProfileParsed, handleJobsDiscovered, etc.) ...
   const handleProfileParsed = (newProfile: CandidateProfile) => {
     setProfile(newProfile);
     showToast("Profile Successfully Mapped!");
@@ -115,13 +165,17 @@ export default function App() {
             </div>
           </div>
 
-          <nav className="flex items-center gap-1 bg-slate-950/50 p-1.5 rounded-2xl border border-slate-800/50 overflow-x-auto no-scrollbar">
+          <nav className="flex items-center gap-1 bg-slate-950/50 p-1.5 rounded-2xl border border-slate-800/50 overflow-x-auto no-scrollbar max-w-full">
             {[
               { id: "ats", label: "ATS Matcher", icon: Target },
-              { id: "cover", label: "Cover Letter", icon: FileSignature },
-              { id: "prep", label: "Interview Prep", icon: Brain },
-              { id: "outreach", label: "Outreach", icon: MessageSquare },
+              { id: "writer", label: "Resume Writer", icon: FileSignature },
+              { id: "builder", label: "Resume Builder", icon: Layout },
+              { id: "cover", label: "Cover Letter", icon: FileText },
+              { id: "prep", label: "Prep Studio", icon: Brain },
+              { id: "recruiters", label: "Recruiter Finder", icon: Users },
               { id: "jobs", label: "Job Board", icon: Briefcase },
+              { id: "kanban", label: "Tracker CRM", icon: ClipboardList },
+              { id: "analytics", label: "Analytics", icon: BarChart3 },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -177,6 +231,10 @@ export default function App() {
                </div>
              )}
 
+             {activeTab === "writer" && <ResumeWriter resumeText={resumeText} />}
+
+             {activeTab === "builder" && <ResumeBuilder />}
+
              {activeTab === "jobs" && <JobsTable jobs={jobs} onTrackJob={handleTrackJob} />}
 
              {activeTab === "cover" && (
@@ -192,24 +250,39 @@ export default function App() {
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8">
                    <div className="flex items-center gap-4 mb-8">
                       <Brain className="w-8 h-8 text-purple-400" />
-                      <h2 className="text-xl font-black text-white">Interview Q&A Prep</h2>
+                      <h2 className="text-xl font-black text-white">Interview Prep Studio</h2>
                    </div>
                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-                         <h3 className="font-bold text-indigo-400 mb-2">Behavioral</h3>
-                         <p className="text-xs text-slate-400">STAR method responses for common culture-fit questions.</p>
+                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-indigo-500/50 transition-all cursor-pointer">
+                         <h3 className="font-bold text-indigo-400 mb-2 uppercase tracking-widest text-[10px]">Behavioral</h3>
+                         <p className="text-sm text-white font-bold mb-2">STAR Method Master</p>
+                         <p className="text-xs text-slate-400">Practice common culture-fit questions with AI feedback.</p>
                       </div>
-                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-                         <h3 className="font-bold text-emerald-400 mb-2">Technical</h3>
-                         <p className="text-xs text-slate-400">Deep dives into stack-specific concepts and DSA.</p>
+                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-emerald-500/50 transition-all cursor-pointer">
+                         <h3 className="font-bold text-emerald-400 mb-2 uppercase tracking-widest text-[10px]">Technical</h3>
+                         <p className="text-sm text-white font-bold mb-2">System Design & DSA</p>
+                         <p className="text-xs text-slate-400">Deep dives into stack-specific concepts and coding challenges.</p>
                       </div>
-                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-                         <h3 className="font-bold text-amber-400 mb-2">Mock Voice</h3>
+                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-amber-500/50 transition-all cursor-pointer group">
+                         <h3 className="font-bold text-amber-400 mb-2 uppercase tracking-widest text-[10px]">Interactive</h3>
+                         <p className="text-sm text-white font-bold mb-2">Voice Mock Studio</p>
                          <p className="text-xs text-slate-400 italic opacity-50">Local Speech-to-Text integration coming soon.</p>
                       </div>
                    </div>
                 </div>
              )}
+
+             {activeTab === "recruiters" && <RecruiterFinder />}
+
+             {activeTab === "kanban" && (
+                <KanbanBoard
+                  jobs={jobs}
+                  onUpdateCard={handleUpdateApplicationCard}
+                  onTrackJob={handleTrackJob}
+                />
+             )}
+
+             {activeTab === "analytics" && <AnalyticsDashboard />}
           </div>
         )}
       </main>

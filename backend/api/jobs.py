@@ -45,6 +45,20 @@ async def scrape_jobs(payload: dict, db: AsyncSession = Depends(get_db_session))
         "jobs": new_jobs
     }
 
+@router.post("/search-all")
+async def search_all_platforms(payload: dict):
+    query = payload.get("search_query")
+    location = payload.get("location", "Remote")
+    platforms = payload.get("platforms", [])
+    limit = payload.get("limit", 20)
+
+    if not query:
+        raise HTTPException(status_code=400, detail="Search query is required.")
+
+    from core.scraper_engine import scraper_engine
+    results = await scraper_engine.search_all(query, location, limit, platforms)
+    return results
+
 @router.post("/track")
 async def track_job(payload: dict, db: AsyncSession = Depends(get_db_session)):
     job_id = payload.get("job_id")
