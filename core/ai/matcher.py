@@ -44,7 +44,8 @@ class JobMatcher:
             match_score=round(score, 1),
             fit_summary="Heuristic Match: Evaluated based on technical keyword intersection (Offline Fallback).",
             keywords_matched=matched,
-            keywords_missing=missing
+            keywords_missing=missing,
+            quota_safe=True
         )
 
     async def analyze_fit(self, job_description: str, user_profile: str) -> AIAnalysisCreate:

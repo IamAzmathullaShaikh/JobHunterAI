@@ -7,6 +7,7 @@ class AIAnalysisBase(BaseModel):
     fit_summary: str = Field(..., description="Summary breakdown of candidate alignment")
     keywords_matched: List[str] = Field(default_factory=list)
     keywords_missing: List[str] = Field(default_factory=list)
+    quota_safe: bool = Field(default=True, description="Indicates if the request was within quota")
     suggested_resume_path: Optional[str] = None
     suggested_cover_letter_path: Optional[str] = None
 

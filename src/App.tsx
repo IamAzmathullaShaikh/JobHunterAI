@@ -1,50 +1,40 @@
-import React, { useState, useEffect } from "react";
-import {
-  Sparkles,
-  Briefcase,
-  Brain,
-  ClipboardList,
-  RefreshCw,
-  Download,
-  Trash2,
-  CheckCircle,
-  HelpCircle,
-  Users,
-} from "lucide-react";
-import { CandidateProfile, JobListing, ApplicationStatus } from "./types.ts";
-import ResumeIngestion from "./components/ResumeIngestion.tsx";
-import ScraperFleet from "./components/ScraperFleet.tsx";
-import JobsTable from "./components/JobsTable.tsx";
-import AnalysisMatrix from "./components/AnalysisMatrix.tsx";
-import KanbanBoard from "./components/KanbanBoard.tsx";
-import ContactFinder from "./components/ContactFinder.tsx";
+import ResumeDrawer from "./components/ResumeDrawer.tsx";
+import EngineStatusChip from "./components/EngineStatusChip.tsx";
+import { ShieldCheck, Target, FileSignature, MessageSquare, ListTodo, Settings } from "lucide-react";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"cockpit" | "jobs" | "ai" | "kanban">("cockpit");
+  const [activeTab, setActiveTab] = useState<"ats" | "cover" | "prep" | "outreach" | "jobs">("ats");
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [resumeText, setResumeText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [excelFilter, setExcelFilter] = useState("All");
-  const [isPurging, setIsPurging] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isPrivacyMode, setIsPrivacyMode] = useState(false);
+  const [telemetry, setTelemetry] = useState<any>(null);
 
-  // Fetch initial profile and jobs
+  // Fetch initial profile, jobs, and telemetry
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
       try {
-        const pRes = await fetch("/api/profile");
-        const pData = await pRes.json();
-        if (pData.profile) {
-          setProfile(pData.profile);
-        }
+        const [pRes, jRes, tRes] = await Promise.all([
+          fetch("/api/profile"),
+          fetch("/api/jobs"),
+          fetch("/api/system/telemetry")
+        ]);
 
-        const jRes = await fetch("/api/jobs");
-        const jData = await jRes.json();
+        const [pData, jData, tData] = await Promise.all([
+          pRes.json(),
+          jRes.json(),
+          tRes.json()
+        ]);
+
+        if (pData.profile) setProfile(pData.profile);
         setJobs(jData.jobs || []);
+        setTelemetry(tData);
       } catch (err) {
-        console.error("Error loading application states:", err);
+        console.error("Error loading system state:", err);
       } finally {
         setIsLoading(false);
       }
@@ -52,14 +42,15 @@ export default function App() {
     loadData();
   }, []);
 
+  // ... Existing handlers (handleProfileParsed, handleJobsDiscovered, etc.) ...
   const handleProfileParsed = (newProfile: CandidateProfile) => {
     setProfile(newProfile);
-    showToast("Candidate Profile Successfully Mapped!");
+    showToast("Profile Successfully Mapped!");
   };
 
   const handleJobsDiscovered = (updatedJobs: JobListing[]) => {
     setJobs(updatedJobs);
-    showToast("Scraper Pipeline run complete! Database updated.");
+    showToast("Scraper Pipeline run complete!");
   };
 
   const handleTrackJob = async (jobId: number) => {
@@ -71,59 +62,10 @@ export default function App() {
       });
       if (response.ok) {
         const resData = await response.json();
-        // Update local jobs list
-        setJobs((prev) =>
-          prev.map((j) => (j.id === jobId ? { ...j, application: resData.job.application } : j))
-        );
-        showToast("Role moved into tracked pipeline board!");
+        setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, application: resData.job.application } : j)));
+        showToast("Role moved into tracked pipeline!");
       }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleUpdateApplicationCard = async (
-    appId: number,
-    status: ApplicationStatus,
-    notes: string
-  ) => {
-    try {
-      const response = await fetch(`/api/applications/${appId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, notes }),
-      });
-      if (response.ok) {
-        const resData = await response.json();
-        // Update local jobs list
-        setJobs((prev) =>
-          prev.map((j) => (j.id === resData.job.id ? { ...j, application: resData.job.application } : j))
-        );
-        showToast("Application tracking status updated.");
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const purgeDatabase = async () => {
-    setIsPurging(true);
-    try {
-      const response = await fetch("/api/jobs/purge", { method: "POST" });
-      if (response.ok) {
-        const data = await response.json();
-        setJobs(data.jobs);
-        showToast(`Cleaned database! Purged ${data.purged_count} duplicate listings.`);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsPurging(false);
-    }
-  };
-
-  const downloadExcel = () => {
-    window.open(`/api/export?status_filter=${encodeURIComponent(excelFilter)}`, "_blank");
+    } catch (err) { console.error(err); }
   };
 
   const showToast = (msg: string) => {
@@ -131,267 +73,153 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Filter tracked roles for cockpit summary board
-  const trackedRoles = jobs.filter((j) => j.application);
-
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 bg-slate-800 border-l-4 border-emerald-400 text-slate-100 px-4 py-3 rounded-lg shadow-xl flex items-center gap-2.5 max-w-sm animate-fade-in font-sans text-sm">
+        <div className="fixed top-5 right-5 z-[100] bg-slate-800 border-l-4 border-emerald-400 text-slate-100 px-4 py-3 rounded-lg shadow-2xl flex items-center gap-2.5 max-w-sm animate-slide-in">
           <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
-          <span>{toastMessage}</span>
+          <span className="text-sm font-medium">{toastMessage}</span>
         </div>
       )}
 
-      {/* Header Panel */}
-      <header className="bg-slate-950 border-b border-slate-800/80 px-6 py-4 sticky top-0 z-30 shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl">⚡</span>
-              <h1 className="text-lg font-bold text-slate-100 tracking-tight">
-                JobHunterAI Dashboard
-              </h1>
+      {/* Global Shared Resume Drawer */}
+      <ResumeDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        resumeText={resumeText}
+        onTextChange={setResumeText}
+      />
+
+      {/* Modern Header Navigation */}
+      <header className="bg-slate-900/50 backdrop-blur-xl border-b border-slate-800/80 px-6 py-4 sticky top-0 z-40">
+        <div className="max-w-[1440px] mx-auto flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-600/20">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-black tracking-tight text-white uppercase italic">JobHunter<span className="text-indigo-400">AI</span></h1>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <EngineStatusChip source="groq_ai" latency={telemetry?.circuit_breakers?.groq?.latency} />
+                  <div className={`w-1.5 h-1.5 rounded-full ${telemetry?.keys?.groq ? "bg-emerald-500 animate-pulse" : "bg-slate-600"}`} />
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5 font-medium">
-              Your personal AI job search assistant
-            </p>
+
+            <div className="xl:hidden">
+               <button onClick={() => setIsDrawerOpen(true)} className="bg-slate-800 p-2 rounded-lg">
+                 <FileText className="w-5 h-5" />
+               </button>
+            </div>
           </div>
 
-          {/* Nav Tabs */}
-          <nav className="flex bg-slate-900 rounded-lg p-1 text-xs font-semibold select-none border border-slate-800/60 self-start md:self-center">
-            <button
-              onClick={() => setActiveTab("cockpit")}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-md transition-all cursor-pointer ${
-                activeTab === "cockpit"
-                  ? "bg-indigo-600 text-slate-100 shadow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              ⚡ Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab("jobs")}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-md transition-all cursor-pointer ${
-                activeTab === "jobs"
-                  ? "bg-indigo-600 text-slate-100 shadow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Briefcase className="w-3.5 h-3.5" />
-              Discovered Jobs
-              {jobs.length > 0 && (
-                <span className="bg-slate-850 text-indigo-300 border border-indigo-500/10 text-[10px] px-1 rounded-sm">
-                  {jobs.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab("ai")}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-md transition-all cursor-pointer ${
-                activeTab === "ai"
-                  ? "bg-indigo-600 text-slate-100 shadow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Brain className="w-3.5 h-3.5" />
-              AI Matrix
-            </button>
-            <button
-              onClick={() => setActiveTab("kanban")}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-md transition-all cursor-pointer ${
-                activeTab === "kanban"
-                  ? "bg-indigo-600 text-slate-100 shadow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <ClipboardList className="w-3.5 h-3.5" />
-              Kanban Tracker
-              {trackedRoles.length > 0 && (
-                <span className="bg-slate-850 text-emerald-400 border border-emerald-500/10 text-[10px] px-1 rounded-sm">
-                  {trackedRoles.length}
-                </span>
-              )}
-            </button>
+          <nav className="flex items-center gap-1 bg-slate-950/50 p-1.5 rounded-2xl border border-slate-800/50 overflow-x-auto no-scrollbar">
+            {[
+              { id: "ats", label: "ATS Matcher", icon: Target },
+              { id: "cover", label: "Cover Letter", icon: FileSignature },
+              { id: "prep", label: "Interview Prep", icon: Brain },
+              { id: "outreach", label: "Outreach", icon: MessageSquare },
+              { id: "jobs", label: "Job Board", icon: Briefcase },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                    : "text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
           </nav>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-slate-800/40 px-3 py-1.5 rounded-xl border border-slate-700/50">
+               <ShieldCheck className={`w-4 h-4 ${isPrivacyMode ? "text-emerald-400" : "text-slate-500"}`} />
+               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Privacy</span>
+               <button
+                 onClick={() => setIsPrivacyMode(!isPrivacyMode)}
+                 className={`w-8 h-4 rounded-full relative transition-colors ${isPrivacyMode ? "bg-emerald-500" : "bg-slate-700"}`}
+               >
+                 <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isPrivacyMode ? "left-4.5" : "left-0.5"}`} />
+               </button>
+            </div>
+
+            <button
+              onClick={() => setIsDrawerOpen(true)}
+              className="hidden xl:flex items-center gap-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 px-4 py-2 rounded-xl text-sm font-bold border border-indigo-500/20 transition-all"
+            >
+              <FileText className="w-4 h-4" />
+              Shared Resume
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-8">
+      <main className="flex-1 max-w-[1440px] w-full mx-auto p-6">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center text-center py-24 space-y-3">
-            <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
-            <p className="text-sm text-slate-400 font-medium">Loading your job search dashboard...</p>
+          <div className="h-full flex flex-col items-center justify-center space-y-4">
+            <RefreshCw className="w-10 h-10 text-indigo-500 animate-spin" />
+            <p className="text-slate-400 font-bold animate-pulse uppercase tracking-tighter">Initializing AI Engines...</p>
           </div>
         ) : (
-          <>
-            {activeTab === "cockpit" && (
-              <div className="space-y-8 animate-fade-in">
-                {/* Row 1: Resume Parser + Fleet configurations */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  <ResumeIngestion
-                    profile={profile}
-                    onProfileParsed={handleProfileParsed}
-                    resumeText={resumeText}
-                    setResumeText={setResumeText}
-                  />
-                  <ScraperFleet
-                    profile={profile}
-                    onJobsDiscovered={handleJobsDiscovered}
-                    resumeText={resumeText}
-                  />
-                </div>
+          <div className="space-y-6 animate-fade-in">
+             {/* Tab Content Mapping */}
+             {activeTab === "ats" && (
+               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  <ResumeIngestion profile={profile} onProfileParsed={handleProfileParsed} resumeText={resumeText} setResumeText={setResumeText} />
+                  <AnalysisMatrix jobs={jobs} resumeText={resumeText} onAnalysisComplete={setJobs} />
+               </div>
+             )}
 
-                {/* Row 2: Recruiter Contact Finder */}
-                <ContactFinder defaultSearchQuery={profile?.recommended_search_queries?.[0] || ""} />
+             {activeTab === "jobs" && <JobsTable jobs={jobs} onTrackJob={handleTrackJob} />}
 
-                {/* Row 3: Maintenance / Status tracker */}
-                <div className="bg-slate-800/60 rounded-xl p-6 border border-slate-700/80 shadow-md">
-                  <div className="flex items-center justify-between border-b border-slate-700/80 pb-4 mb-5">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
-                        <ClipboardList className="w-5 h-5 text-indigo-400" />
-                        📊 Track your applications in one place
-                      </h3>
-                      <p className="text-xs text-slate-400">
-                        Step 5: Review tracked jobs, clean up records, and download Excel reports (Step 6).
-                      </p>
-                    </div>
-                  </div>
+             {activeTab === "cover" && (
+               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center">
+                  <FileSignature className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h2 className="text-xl font-black text-white mb-2">Tiered Cover Letter Engine</h2>
+                  <p className="text-slate-400 mb-6 max-w-md mx-auto">Generate hyper-tailored cover letters using Llama 3.3 with local Markdown formatting fallbacks.</p>
+                  <button className="bg-indigo-600 px-8 py-3 rounded-2xl font-black text-white hover:scale-105 transition-transform">Create New Draft</button>
+               </div>
+             )}
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                    {/* Database maintenance & exports */}
-                    <div className="space-y-6">
-                      <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800/80 space-y-4">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                          ⚙️ Controls & Exports
-                        </h4>
-                        <div>
-                          <label className="text-xs text-slate-400 block mb-1">
-                            Filter Listings by Status
-                          </label>
-                          <select
-                            value={excelFilter}
-                            onChange={(e) => setExcelFilter(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                          >
-                            <option value="All">All</option>
-                            <option value="Identified">Identified</option>
-                            <option value="AI Ready">AI Ready</option>
-                            <option value="Applied">Applied</option>
-                            <option value="Interviewing">Interviewing</option>
-                            <option value="Offer">Offer</option>
-                            <option value="Rejected">Rejected</option>
-                          </select>
-                        </div>
-
-                        <button
-                          onClick={downloadExcel}
-                          className="w-full bg-indigo-600 hover:bg-indigo-500 text-slate-100 font-bold text-xs py-2 px-3 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow"
-                        >
-                          <Download className="w-4.5 h-4.5" />
-                          Download Excel report
-                        </button>
+             {activeTab === "prep" && (
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8">
+                   <div className="flex items-center gap-4 mb-8">
+                      <Brain className="w-8 h-8 text-purple-400" />
+                      <h2 className="text-xl font-black text-white">Interview Q&A Prep</h2>
+                   </div>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50">
+                         <h3 className="font-bold text-indigo-400 mb-2">Behavioral</h3>
+                         <p className="text-xs text-slate-400">STAR method responses for common culture-fit questions.</p>
                       </div>
-
-                      <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800/80 space-y-3">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                          🧹 Cleanup
-                        </h4>
-                        <button
-                          onClick={purgeDatabase}
-                          disabled={isPurging}
-                          className="w-full bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold text-xs py-2 px-3 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-700"
-                        >
-                          <Trash2 className="w-4.5 h-4.5 text-rose-400" />
-                          🧼 Clean up duplicates
-                        </button>
+                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50">
+                         <h3 className="font-bold text-emerald-400 mb-2">Technical</h3>
+                         <p className="text-xs text-slate-400">Deep dives into stack-specific concepts and DSA.</p>
                       </div>
-                    </div>
-
-                    {/* Active compatibility tracks display */}
-                    <div className="lg:col-span-2 bg-slate-900/40 rounded-xl p-4 border border-slate-800/80 min-h-[220px]">
-                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
-                        📋 Tracked Jobs & Match Scores
-                      </h4>
-
-                      {trackedRoles.length === 0 ? (
-                        <div className="text-center py-12 text-slate-500 text-xs">
-                          <HelpCircle className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                          No jobs tracked yet. Go to 'Discovered Jobs' to add some.
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs border-collapse">
-                            <thead>
-                              <tr className="text-slate-500 border-b border-slate-850 pb-2">
-                                <th className="pb-2 font-bold uppercase">Job / Company</th>
-                                <th className="pb-2 font-bold uppercase">Status</th>
-                                <th className="pb-2 font-bold uppercase text-right">Fit Score</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-850">
-                              {trackedRoles.map((j) => (
-                                <tr key={j.id} className="hover:bg-slate-900/10">
-                                  <td className="py-2.5 pr-2">
-                                    <div className="font-semibold text-slate-200">{j.title}</div>
-                                    <div className="text-[10px] text-slate-400 mt-0.5">{j.company_name}</div>
-                                  </td>
-                                  <td className="py-2.5">
-                                    <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded font-bold font-sans">
-                                      {j.application!.status}
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 text-right font-mono font-bold text-emerald-400">
-                                    {j.ai_analysis ? `${Math.round(j.ai_analysis.match_score)}%` : "N/A"}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50">
+                         <h3 className="font-bold text-amber-400 mb-2">Mock Voice</h3>
+                         <p className="text-xs text-slate-400 italic opacity-50">Local Speech-to-Text integration coming soon.</p>
+                      </div>
+                   </div>
                 </div>
-              </div>
-            )}
-
-            {activeTab === "jobs" && (
-              <div className="animate-fade-in">
-                <JobsTable jobs={jobs} onTrackJob={handleTrackJob} />
-              </div>
-            )}
-
-            {activeTab === "ai" && (
-              <div className="animate-fade-in">
-                <AnalysisMatrix
-                  jobs={jobs}
-                  resumeText={resumeText}
-                  onAnalysisComplete={(updatedJobs) => setJobs(updatedJobs)}
-                />
-              </div>
-            )}
-
-            {activeTab === "kanban" && (
-              <div className="animate-fade-in">
-                <KanbanBoard
-                  jobs={jobs}
-                  onUpdateCard={handleUpdateApplicationCard}
-                  onTrackJob={async (jobId) => {
-                    await handleTrackJob(jobId);
-                  }}
-                />
-              </div>
-            )}
-          </>
+             )}
+          </div>
         )}
       </main>
 
-      <footer className="bg-slate-950 border-t border-slate-900 py-6 px-6 mt-12 text-center text-xs text-slate-500">
-        <p>© 2026 JobHunterAI. Fully Migrated to Server-Side TypeScript.</p>
+      <footer className="px-6 py-8 text-center">
+         <div className="flex items-center justify-center gap-6 text-[10px] font-black text-slate-600 uppercase tracking-widest border-t border-slate-900 pt-8">
+            <span className="flex items-center gap-1.5"><ShieldCheck className="w-3 h-3" /> Zero-Trust PII</span>
+            <span className="flex items-center gap-1.5"><ListTodo className="w-3 h-3" /> Offline First</span>
+            <span className="flex items-center gap-1.5"><Settings className="w-3 h-3" /> Local v3.0.0</span>
+         </div>
       </footer>
     </div>
   );

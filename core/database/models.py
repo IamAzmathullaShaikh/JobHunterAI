@@ -231,6 +231,37 @@ class CompanySnapshot(Base):
         onupdate=lambda: datetime.now(timezone.utc)
     )
 
+# ----------------------------------------------------------------------
+# Telemetry and History
+# ----------------------------------------------------------------------
+
+class TelemetryLog(Base):
+    __tablename__ = "telemetry_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    event_type: Mapped[str] = mapped_column(String(100), index=True) # e.g., "ai_call", "scraper_run", "db_init"
+    source: Mapped[str] = mapped_column(String(50)) # e.g., "groq_ai", "gemini_ai", "local_engine"
+    latency_ms: Mapped[int] = mapped_column(Integer)
+    success: Mapped[bool] = mapped_column(Boolean)
+    details: Mapped[Optional[dict]] = mapped_column(JSON) # e.g., circuit breaker state, error message
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+class MatchHistory(Base):
+    __tablename__ = "match_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("job_listings.id", ondelete="CASCADE"))
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("user_profiles.id", ondelete="CASCADE"))
+    match_score: Mapped[float] = mapped_column(Float)
+    fit_summary: Mapped[str] = mapped_column(Text)
+    keywords_matched: Mapped[Optional[list]] = mapped_column(JSON)
+    keywords_missing: Mapped[Optional[list]] = mapped_column(JSON)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
 
 # ----------------------------------------------------------------------
 # Vector similarity placeholder (pgvector) – add column later if you enable the extension

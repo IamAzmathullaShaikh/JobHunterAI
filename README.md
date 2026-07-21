@@ -1,6 +1,6 @@
-# JobHunterAI Ecosystem 🚀
+# JobHunterAI Ecosystem v3.0 🚀
 
-JobHunterAI is a production-grade, local-first job tracking and discovery ecosystem. It features a high-performance Python backend, a modern React web application, and a native Android application.
+JobHunterAI is an elite, local-first job tracking and career automation ecosystem. It features a high-performance Python backend with a 3-tier fallback AI router, a modern React web application, and a native Android application.
 
 ---
 
@@ -8,39 +8,49 @@ JobHunterAI is a production-grade, local-first job tracking and discovery ecosys
 
 ```mermaid
 graph TD
-    subgraph Frontend
+    subgraph Frontend Layer
         Web[React Web App]
-        Mobile[Android App - Jetpack Compose]
+        Mobile[Android Native App]
     end
 
-    subgraph Backend
-        API[FastAPI Service]
-        Core[Core Logic - Scrapers, AI, DB]
+    subgraph Security & API Layer
+        API[FastAPI Gateway]
+        Policer[Request Policer - Size & Quota]
+        Sanitizer[Local PII Redactor]
+    end
+
+    subgraph Core Engine Layer
+        Cache[(Local Response Cache)]
+        Router[3-Tier Smart Router]
+        Groq[Tier 1: Groq Llama 3.3]
+        Gemini[Tier 2: Gemini 1.5 Flash]
+        LocalEng[Tier 3: Local Engine]
     end
 
     DB[(SQLite - jobhunter.db)]
 
     Web --> API
     Mobile --> API
-    API --> Core
-    Core --> DB
+    API --> Policer
+    Policer --> Sanitizer
+    Sanitizer --> Cache
+    Cache -- Miss --> Router
+    Router --> Groq
+    Router --> Gemini
+    Router --> LocalEng
+    LocalEng --> DB
 ```
-
-### Key Modules:
-- **`backend/`**: Unified FastAPI service providing REST endpoints for Web and Mobile.
-- **`core/`**: The brain of the system. Handles multi-site scraping, AI match analysis, and data persistence.
-- **`src/`**: React application built with Vite and Tailwind CSS.
-- **`mobile/android/`**: Native Android application engineered with Kotlin and Jetpack Compose.
 
 ---
 
-## 🛠 Tech Stack
+## 🛠 Features
 
-- **Backend**: Python 3.11+, FastAPI, SQLAlchemy, Playwright.
-- **AI**: Google Gemini & Groq (with local heuristic fallbacks).
-- **Web**: React 18, Vite, Tailwind CSS, Lucide.
-- **Mobile**: Kotlin, Jetpack Compose, Material 3, Retrofit.
-- **Infrastructure**: Docker, Docker Compose, GitHub Actions.
+1.  **3-Tier Smart Router**: Cascading fallback logic (Groq -> Gemini -> Local Engine) with built-in circuit breakers and **exponential backoff**.
+2.  **Quota Safeguards**: Automatic detection of API exhaustion with immediate failover to Tier 3.
+3.  **Response Caching**: Identical career queries are served from a local cache to save tokens and minimize latency.
+4.  **Zero-Trust Privacy**: Local PII Redaction masks emails, phones, and addresses before cloud processing.
+5.  **Multi-Platform**: Seamless experience across Web and Native Android.
+6.  **Offline First**: Semantic matching works locally using Sentence-Transformers even without API keys.
 
 ---
 
@@ -49,14 +59,14 @@ graph TD
 ### 1. Prerequisites
 - Python 3.11+
 - Node.js 20+
-- Android Studio (for mobile development)
-- Docker (optional)
+- Android Studio (Electric Eel or newer)
+- Docker (Optional)
 
-### 2. Local Setup (Development)
+### 2. Local Setup
 
 #### Backend (FastAPI)
 ```bash
-# Set PYTHONPATH to include the core module
+# Set PYTHONPATH to the core logic
 $env:PYTHONPATH="core" 
 pip install -r requirements.txt
 python -m playwright install chromium
@@ -80,14 +90,19 @@ docker-compose up --build
 
 ---
 
-## 🔍 Features & Policies
+## 🔒 Environment Variables (`.env`)
+```env
+# AI Providers
+GROQ_API_KEY=your_key
+GEMINI_API_KEY=your_key
+AI_PROVIDER=groq
 
-- **Local-First**: All job data and resume profiles are stored in a local SQLite database.
-- **Offline Fallback**: If LLM API keys are missing, the system uses technical keyword intersection to provide match scores.
-- **Privacy Driven**: Your resume and job history never leave your machine unless specifically sent to an LLM for analysis.
+# Local Config
+DATABASE_URL=sqlite:///./data/jobhunter.db
+APIFY_API_TOKEN=your_token
+```
 
 ---
 
-## 🤝 Contribution & License
-- Branching Strategy: `refactor/modular-core-architecture`, `feature/web-app-ready`, `feature/android-app-ready`.
-- Licensed under the **MIT License**.
+## 🤝 License
+Released under the **MIT License**.

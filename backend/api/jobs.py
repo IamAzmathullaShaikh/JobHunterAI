@@ -78,13 +78,6 @@ async def analyze_job(payload: dict, db: AsyncSession = Depends(get_db_session))
     if not job_id or not resume_text:
         raise HTTPException(status_code=400, detail="Job ID and Resume text are required.")
 
-    service = JobService(db)
-    # Re-using the logic from JobService but for a specific job
-    # We can either update JobService to handle single job or do it here
-    # For now, let's call the matcher directly
-    from ai.matcher import JobMatcher
-    matcher = JobMatcher()
-
     stmt = select(JobListing).where(JobListing.id == job_id)
     result = await db.execute(stmt)
     job = result.scalar_one_or_none()
@@ -92,17 +85,15 @@ async def analyze_job(payload: dict, db: AsyncSession = Depends(get_db_session))
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
 
-    analysis = await matcher.analyze_fit(job.description_raw or job.title, resume_text)
+    from task_engine import TaskEngine
+    engine = TaskEngine(db)
 
-    ai_record = AIAnalysis(
-        job_id=job.id,
-        match_score=analysis.match_score,
-        fit_summary=analysis.fit_summary,
-        keywords_matched=",".join(analysis.keywords_matched),
-        keywords_missing=",".join(analysis.keywords_missing)
-    )
-    db.add(ai_record)
-    await db.commit()
+    # Use the unified TaskEngine which includes Caching, Truncation, and Smart Routing
+    analysis_result = await engine.analyze_ats_fit(resume_text, job.description_raw or job.title)
+
+    if not analysis_result["success"]:
+        raise HTTPException(status_code=500, detail=analysis_result.get("error", "AI Analysis failed"))
+
+    # Reload job to get updated relationship if needed, though TaskEngine saves to DB
     await db.refresh(job)
-
-    return {"job": job}
+    return {"job": job, "meta": {"source": analysis_result["source"], "latency": analysis_result["latency_ms"]}}
