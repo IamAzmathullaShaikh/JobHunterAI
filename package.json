@@ -5,6 +5,8 @@
   "scripts": {
     "dev:frontend": "vite",
     "dev:backend": "python -c \"import os, sys; sys.path.insert(0, os.getcwd()); sys.path.insert(0, os.path.join(os.getcwd(), 'core')); import uvicorn; uvicorn.run('backend.main:app', host='0.0.0.0', port=8000, reload=True)\"",
+    "dev:all": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "run": "python run.py",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -33,12 +35,13 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
-    "esbuild": "^0.21.5",
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.28.1",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.15.7",
     "typescript": "^5.5.2",
-    "vite": "^5.3.1",
+    "vite": "^8.1.5",
     "vitest": "^4.1.10"
   }
 }

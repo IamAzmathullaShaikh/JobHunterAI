@@ -6,13 +6,7 @@ from utils.logger import logger
 
 class ResumeParser:
     def __init__(self):
-        # 1. Defensive key check
-        api_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else ""
-        if not api_key:
-            logger.error("GROQ_API_KEY is missing or empty! Check your .env file.")
-            raise ValueError("GROQ_API_KEY is not configured in .env file.")
-            
-        # 2. Initialize Groq client with explicit timeout controls
+        # Initialize client, will be None if keys are missing
         self.client = get_llm_client()
         self.model = settings.GROQ_MODEL or "llama-3.3-70b-versatile"
 

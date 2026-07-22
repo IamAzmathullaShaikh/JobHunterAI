@@ -37,6 +37,7 @@ import ResumeWriter from "./components/ResumeWriter.tsx";
 import ResumeBuilder from "./components/ResumeBuilder.tsx";
 import RecruiterFinder from "./components/RecruiterFinder.tsx";
 import AnalyticsDashboard from "./components/AnalyticsDashboard.tsx";
+import JobDiscovery from "./components/JobDiscovery.tsx";
 
 export default function App() {
   return (
@@ -63,9 +64,9 @@ function Dashboard() {
       setIsLoading(true);
       try {
         const responses = await Promise.allSettled([
-          fetch("/api/profile"),
-          fetch("/api/jobs"),
-          fetch("/api/system/telemetry")
+          fetch("/api/profile/"),
+          fetch("/api/jobs/"),
+          fetch("/api/system/telemetry/")
         ]);
 
         const [pRes, jRes, tRes] = responses;
@@ -235,7 +236,15 @@ function Dashboard() {
 
              {activeTab === "builder" && <ResumeBuilder />}
 
-             {activeTab === "jobs" && <JobsTable jobs={jobs} onTrackJob={handleTrackJob} />}
+             {activeTab === "jobs" && (
+               <JobDiscovery
+                 profile={profile}
+                 jobs={jobs}
+                 onJobsDiscovered={handleJobsDiscovered}
+                 onTrackJob={handleTrackJob}
+                 resumeText={resumeText}
+               />
+             )}
 
              {activeTab === "cover" && (
                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center">

@@ -111,3 +111,15 @@ async def analyze_job(payload: dict, db: AsyncSession = Depends(get_db_session))
     # Reload job to get updated relationship if needed, though TaskEngine saves to DB
     await db.refresh(job)
     return {"job": job, "meta": {"source": analysis_result["source"], "latency": analysis_result["latency_ms"]}}
+
+@router.post("/analyze-pending")
+async def analyze_pending_jobs(payload: dict, db: AsyncSession = Depends(get_db_session)):
+    resume_text = payload.get("resume_text")
+    if not resume_text:
+        raise HTTPException(status_code=400, detail="Resume text is required.")
+
+    from core.services.job_service import JobService
+    service = JobService(db)
+    count = await service.process_pending_analyses(resume_text)
+
+    return {"count": count, "message": f"Successfully analyzed {count} pending jobs."}

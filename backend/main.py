@@ -41,7 +41,7 @@ async def limit_request_size(request: Request, call_next):
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > MAX_REQUEST_SIZE:
             return JSONResponse(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 content={"detail": "Payload too large. Max size is 100KB."}
             )
     return await call_next(request)
