@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "dev:frontend": "vite",
+    "dev:backend": "python -c \"import os, sys; sys.path.insert(0, os.getcwd()); sys.path.insert(0, os.path.join(os.getcwd(), 'core')); import uvicorn; uvicorn.run('backend.main:app', host='0.0.0.0', port=8000, reload=True)\"",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

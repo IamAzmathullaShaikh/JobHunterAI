@@ -1,40 +1,42 @@
-# Implementation Plan - Fix Empty Job List and Improve UI Feedback
+# Implementation Plan - Fix Missing Job Listings & UI Enhancement
 
-The app shows an empty list because the network request is likely failing silently. A key reason is that the app uses an `http` URL without enabling cleartext traffic in the manifest. Additionally, the UI lacks loading and error states, making it hard to diagnose issues.
+The app currently shows an empty list without any feedback. This is likely due to a silent network error or a missing data binding layer. I will implement a robust architecture using the Repository/ViewModel pattern to handle data fetching, local caching, and UI states.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> I am enabling `android:usesCleartextTraffic="true"` in the `AndroidManifest.xml` to allow the app to connect to the local backend over `http`. If you are using a physical device, you may need to update the `BASE_URL` in `ApiClient.kt` to your computer's local IP address.
+> **Network Connectivity**: If you are testing on a **physical device** (not an emulator), you must change the `BASE_URL` in `ApiClient.kt` from `10.0.2.2` to your computer's local IP address (e.g., `192.168.1.x`).
 
 ## Proposed Changes
 
-### Build & Configuration
+### 1. Data & Logic Layer (Architecture)
 
-#### [MODIFY] [AndroidManifest.xml](file:///C:/Users/iamsh/StudioProjects/JobHunterAI/mobile/android/app/src/main/AndroidManifest.xml)
-- Add `android:usesCleartextTraffic="true"` to the `<application>` tag.
+#### [NEW] [JobRepository.kt](file:///C:/Users/iamsh/StudioProjects/JobHunterAI/mobile/android/app/src/main/kotlin/com/jobhunterai/data/JobRepository.kt)
+- Implements coordination between API and Room database.
+- Provides a fallback to local cache if the network request fails.
 
-### UI & Logic
+#### [NEW] [DatabaseProvider.kt](file:///C:/Users/iamsh/StudioProjects/JobHunterAI/mobile/android/app/src/main/kotlin/com/jobhunterai/data/DatabaseProvider.kt)
+- Singleton provider for the Room database.
 
-#### [MODIFY] [MainActivity.kt](file:///C:/Users/iamsh/StudioProjects/JobHunterAI/mobile/android/app/src/main/MainActivity.kt)
-- Add a loading state and an error state.
-- Add `Log.e` in the `catch` block to help with debugging.
-- Pass the loading and error states to the `JobBoardScreen`.
+#### [NEW] [JobViewModel.kt](file:///C:/Users/iamsh/StudioProjects/JobHunterAI/mobile/android/app/src/main/kotlin/com/jobhunterai/ui/JobViewModel.kt)
+- Manages `JobUiState`: `Loading`, `Success`, and `Error`.
+- Handles data fetching logic and exposes it to the UI.
+
+### 2. UI Layer (Feedback & Styling)
 
 #### [MODIFY] [JobBoardScreen.kt](file:///C:/Users/iamsh/StudioProjects/JobHunterAI/mobile/android/app/src/main/kotlin/com/jobhunterai/ui/screens/JobBoardScreen.kt)
-- Update `JobBoardScreen` to handle `isLoading` and `errorMessage`.
-- Show a `CircularProgressIndicator` during loading.
-- Show an error message and a "Retry" button if the request fails.
-- Show an "Empty" message if no jobs are returned.
+- Support `JobUiState` to show a **Loading Spinner** or **Error Message** with a "Retry" button.
+- Redesign `JobCard` with modern Material 3 styling (ElevatedCard, Better Typography).
+
+#### [MODIFY] [MainActivity.kt](file:///C:/Users/iamsh/StudioProjects/JobHunterAI/mobile/android/app/src/main/kotlin/com/jobhunterai/MainActivity.kt)
+- Integrate `JobViewModel` and observe states.
 
 ## Verification Plan
 
 ### Automated Tests
-- `gradle_sync`: Ensure the project still syncs correctly.
-- `gradle_build(":app:assembleDebug")`: Ensure the app builds.
+- `gradle_build(":app:assembleDebug")`: Ensure the project compiles with the new architecture.
 
 ### Manual Verification
-- Deploy the app to an emulator.
-- Verify that a loading spinner appears.
-- Verify that if the backend is down, an error message appears.
-- Verify that once the backend is running (and has jobs), they are displayed.
+- Verify the **Loading Spinner** appears on startup.
+- Verify that jobs are displayed once fetched.
+- Verify that an **Error Message** appears if the backend is unreachable.

@@ -1,6 +1,7 @@
-- [ ] Enable Cleartext Traffic in `AndroidManifest.xml`
-- [ ] Implement Loading and Error states in `MainActivity.kt`
-- [ ] Enhance `JobBoardScreen.kt` with states and Material 3 styling
-- [ ] Implement local database fallback logic in `MainActivity` (or a Repository if exists)
+- [ ] Create `DatabaseProvider.kt` for Room database access
+- [ ] Create `JobRepository.kt` for data coordination
+- [ ] Update `build.gradle.kts` with ViewModel dependencies
+- [ ] Create `JobViewModel.kt` with UI state management
+- [ ] Update `JobBoardScreen.kt` with Loading/Error states and M3 styling
+- [ ] Update `MainActivity.kt` to integrate the ViewModel
 - [ ] Verify build and functionality
-- [ ] Commit and Push changes

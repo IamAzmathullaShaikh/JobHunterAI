@@ -6,11 +6,9 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "job_applications")
 data class JobApplicationEntity(
     @PrimaryKey val id: Int,
-    val jobTitle: String,
-    val companyName: String,
-    val status: String,
-    val matchScore: Float,
-    val platform: String,
-    val appliedDate: String?,
-    val notes: String?
+    val jobId: Int,
+    val status: String, // Identified, Applied, etc.
+    val notes: String?,
+    val dateCreated: String,
+    val dateUpdated: String
 )
