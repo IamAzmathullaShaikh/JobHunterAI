@@ -6,6 +6,18 @@ from core.database.models import ResumeProfile
 from core.resume_engine import resume_engine
 from core.template_engine import template_engine
 
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+class TailorRequest(BaseModel):
+    bullets: List[str] = Field(default_factory=list)
+    job_description: Optional[str] = Field("", alias="jd")
+    target_role: Optional[str] = None
+    job_id: Optional[int] = None
+
+    class Config:
+        populate_by_name = True
+
 router = APIRouter(prefix="/api/resumes", tags=["resumes"])
 
 @router.get("/profile")
@@ -15,14 +27,14 @@ async def get_master_profile(db: AsyncSession = Depends(get_db_session)):
     return result.scalar_one_or_none()
 
 @router.post("/tailor")
-async def tailor_resume(payload: dict):
-    bullets = payload.get("bullets", [])
-    jd = payload.get("job_description", "")
+async def tailor_resume(request: TailorRequest):
+    if not request.bullets:
+        return {"data": [], "message": "No bullets provided to tailor."}
 
-    if not bullets or not jd:
-        raise HTTPException(status_code=400, detail="Bullets and JD are required.")
+    # Use provided JD or a default search based on target_role if JD is missing
+    jd_context = request.job_description or f"Position: {request.target_role or 'Software Engineer'}"
 
-    return await resume_engine.tailor_bullets(bullets, jd)
+    return await resume_engine.tailor_bullets(request.bullets, jd_context)
 
 @router.post("/export")
 async def export_resume(payload: dict, db: AsyncSession = Depends(get_db_session)):

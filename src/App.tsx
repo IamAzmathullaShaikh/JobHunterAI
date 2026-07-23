@@ -64,9 +64,9 @@ function Dashboard() {
       setIsLoading(true);
       try {
         const responses = await Promise.allSettled([
-          fetch("/api/profile/"),
-          fetch("/api/jobs/"),
-          fetch("/api/system/telemetry/")
+          fetch("/api/profile"),
+          fetch("/api/jobs"),
+          fetch("/api/system/telemetry")
         ]);
 
         const [pRes, jRes, tRes] = responses;

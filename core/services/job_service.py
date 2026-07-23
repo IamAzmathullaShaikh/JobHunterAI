@@ -4,11 +4,11 @@ from sqlalchemy import select, delete, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import JobListing, JobApplication, ApplicationStatus, AIAnalysis
-from scrapers.manager import ScraperManager
-from schemas.job_listing import JobListingCreate
-from ai.matcher import JobMatcher
-from utils.logger import logger
+from core.database.models import JobListing, JobApplication, ApplicationStatus, AIAnalysis
+from core.scrapers.manager import ScraperManager
+from core.schemas.job_listing import JobListingCreate
+from core.ai.matcher import JobMatcher
+from core.utils.logger import logger
 
 class JobService:
     def __init__(self, session: AsyncSession):

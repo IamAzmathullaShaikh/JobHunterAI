@@ -1,51 +1,88 @@
 import os
-import json
-from typing import List, Dict, Any, Optional
-from jinja2 import Template
-from smart_router import router
-from privacy import redactor
-from utils.logger import logger
+import logging
+import urllib.parse
+from typing import List, Dict, Any
+from core.ai.smart_router import route
+from core.ai.generator import generate_cover_letter # We can reuse this or specialized outreach
 
-class Enricher:
-    """
-    Module for finding recruiters/decision-makers and drafting cold outreach emails.
-    """
+logger = logging.getLogger("jobhunterai.enricher")
 
-    def __init__(self):
-        self.email_templates = {
-            "standard": "Dear {{ person_name }},\n\nI recently came across the {{ job_title }} opening at {{ company_name }} and was immediately drawn to the innovative work your team is doing. My background in {{ skills }} aligns well with the requirements, particularly {{ highlight }}.\n\nI've attached my resume for your review and would love to connect to discuss how I can contribute to {{ company_name }}.\n\nBest regards,\n{{ user_name }}",
-            "executive": "Hi {{ person_name }},\n\nI am reaching out regarding the {{ job_title }} role at {{ company_name }}. With my experience leading teams in {{ department }}, I am confident I can drive significant value for your organization.\n\nI would appreciate a brief conversation at your convenience.\n\nRegards,\n{{ user_name }}"
+# --- Cloud Primary ---
+async def cloud_find_decision_makers(company: str, role: str) -> List[Dict[str, Any]]:
+    """Uses Hunter.io or Apify to find verified emails/leads."""
+    import requests
+
+    # Attempt Apify first if token exists, fallback to Hunter
+    apify_token = os.getenv("APIFY_API_TOKEN")
+    if apify_token:
+        # Placeholder for Apify enrichment logic
+        pass
+
+    hunter_key = os.getenv("HUNTER_API_KEY")
+    if hunter_key:
+        domain = f"{company.lower().replace(' ', '')}.com" # Simple heuristic
+        url = f"https://api.hunter.io/v2/domain-search?domain={domain}&api_key={hunter_key}"
+        try:
+            response = requests.get(url, timeout=10)
+            data = response.json()
+
+            if "data" in data and "emails" in data["data"]:
+                leads = []
+                for email in data["data"]["emails"][:5]:
+                    leads.append({
+                        "person_name": f"{email.get('first_name', '')} {email.get('last_name', '')}".strip() or "Verified Contact",
+                        "title": email.get("position", role),
+                        "email": email.get("value"),
+                        "source": "hunter.io",
+                        "confidence_score": 0.9
+                    })
+                return leads
+        except Exception as e:
+            logger.error(f"Hunter.io call failed: {e}")
+
+    raise ValueError("Cloud providers (Apify/Hunter) returned no results or failed")
+
+cloud_find_decision_makers.required_envs = [["APIFY_API_TOKEN", "HUNTER_API_KEY"]]
+
+# --- Local Fallback ---
+async def local_find_decision_makers(company: str, role: str) -> List[Dict[str, Any]]:
+    """Returns structured search card results for manual exploration."""
+    logger.info(f"Local fallback: Generating search leads for {company}")
+
+    q_linkedin = urllib.parse.quote(f'site:linkedin.com/in/ "{company}" "{role}"')
+    q_google = urllib.parse.quote(f'"{company}" "{role}" contact email')
+
+    return [
+        {
+            "person_name": "LinkedIn Search",
+            "title": f"Search for {role}",
+            "email": "Use LinkedIn Message",
+            "type": "search_card",
+            "url": f"https://www.linkedin.com/search/results/people/?keywords={q_linkedin}",
+            "desc": "Search for decision makers directly on LinkedIn.",
+            "source": "local_search",
+            "confidence_score": 0.5
+        },
+        {
+            "person_name": "Google Search",
+            "title": f"Find {company} Contacts",
+            "email": "Find on Google",
+            "type": "search_card",
+            "url": f"https://www.google.com/search?q={q_google}",
+            "desc": "Find publicly listed contact information.",
+            "source": "local_search",
+            "confidence_score": 0.4
         }
+    ]
 
-    async def find_decision_makers(self, company: str, department: str = "Engineering") -> List[Dict[str, Any]]:
-        """
-        Tiered Recruiter Finder.
-        Tier 1: Apify/Hunter.io (Placeholder)
-        Tier 2: Search (Placeholder)
-        Tier 3: Pattern Generator
-        """
-        # For now, implementing Tier 3: Local Pattern Generator
-        # In a full build, this would use Apify actors
-        logger.info(f"Finding decision-makers for {company} in {department}...")
+local_find_decision_makers.safe_placeholder = []
 
-        # Mocking discovery (to be replaced with actual scraping logic)
-        leads = [
-            {
-                "person_name": f"Jane Doe",
-                "title": f"Head of {department}",
-                "email": f"jane.doe@{company.lower().replace(' ', '')}.com",
-                "linkedin_url": f"https://linkedin.com/in/janedoe-{company.lower()}",
-                "confidence_score": 0.85
-            },
-            {
-                "person_name": f"John Recruiter",
-                "title": f"Technical Recruiter",
-                "email": f"john.r@{company.lower().replace(' ', '')}.com",
-                "linkedin_url": f"https://linkedin.com/in/johnrecruiter-{company.lower()}",
-                "confidence_score": 0.9
-            }
-        ]
-        return leads
+# --- Public API & Compatibility Class ---
+class Enricher:
+    """Backward-compatible class for recruiter discovery and outreach."""
+
+    async def find_decision_makers(self, company: str, role: str = "Engineering") -> List[Dict[str, Any]]:
+        return await route(cloud_find_decision_makers, local_find_decision_makers, company, role)
 
     async def draft_outreach(
         self,
@@ -55,27 +92,29 @@ class Enricher:
         recruiter_name: str,
         user_name: str
     ) -> Dict[str, Any]:
-        """Drafts a cold outreach email using the 3-Tier AI router."""
+        """Drafts a cold outreach email by calling the generator."""
+        from core.ai.generator import generate_cover_letter
 
-        redacted_resume, _ = redactor.redact(resume_text)
+        # We'll treat the outreach as a short cover letter for simplicity in this tiering
+        candidate = {
+            "full_name": user_name,
+            "resume_text": resume_text,
+            "key_skills": ["Software Engineering"] # Heuristic if not parsed
+        }
+        job = {
+            "title": job_title,
+            "company_name": company,
+            "recruiter_name": recruiter_name
+        }
 
-        async def groq_call():
-            from ai.llm_client import get_llm_client
-            client = get_llm_client()
-            prompt = f"Write a cold outreach email to {recruiter_name} at {company} for the {job_title} role. Use this resume context: {redacted_resume}"
-            return await client.chat_completion("llama-3.3-70b-versatile", [{"role": "user", "content": prompt}])
-
-        def local_call():
-            template = Template(self.email_templates["standard"])
-            return template.render(
-                person_name=recruiter_name,
-                job_title=job_title,
-                company_name=company,
-                skills="relevant technologies",
-                highlight="my recent projects",
-                user_name=user_name
-            )
-
-        return await router.route("outreach_drafting", groq_call, groq_call, local_call)
+        res = await generate_cover_letter(candidate, job)
+        return {
+            "success": True,
+            "source": res["source"],
+            "data": res["cover_letter"]
+        }
 
 enricher = Enricher()
+
+async def find_decision_makers(company: str, role: str) -> List[Dict[str, Any]]:
+    return await route(cloud_find_decision_makers, local_find_decision_makers, company, role)

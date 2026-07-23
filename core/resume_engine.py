@@ -1,8 +1,8 @@
 import json
 from typing import List, Dict, Any
-from smart_router import router
-from privacy import redactor
-from utils.logger import logger
+from core.ai.smart_router import route as smart_router
+from core.privacy import redactor
+from core.utils.logger import logger
 
 class ResumeEngine:
     """
@@ -16,7 +16,7 @@ class ResumeEngine:
         safe_jd = job_description[:4000]
 
         async def groq_call():
-            from ai.llm_client import get_llm_client
+            from core.ai.llm_client import get_llm_client
             client = get_llm_client()
             prompt = f"Rewrite these resume bullet points to better match this job description. Maintain truthfulness but emphasize relevant keywords and impact. \nBullets: {bullets}\nJD: {safe_jd}"
             return await client.chat_completion("llama-3.3-70b-versatile", [{"role": "user", "content": prompt}])
@@ -25,7 +25,7 @@ class ResumeEngine:
             # Simple keyword injector (placeholder)
             return [f"{b} (Optimized for JD)" for b in bullets]
 
-        return await router.route("resume_tailoring", groq_call, groq_call, local_call)
+        return await smart_router(groq_call, local_call)
 
     async def optimize_keywords(self, resume_text: str, job_description: str) -> Dict[str, Any]:
         """Identifies missing keywords and suggests where to add them."""

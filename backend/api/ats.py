@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.connection import get_db_session
-from task_engine import TaskEngine
+from core.database.connection import get_db_session
+from core.task_engine import TaskEngine
 import os
 
 router = APIRouter(prefix="/api/ats", tags=["ats"])

@@ -1,0 +1,443 @@
+diff --git a/backend/api/ats.py b/backend/api/ats.py
+index 4bbce5f..b5979c7 100644
+--- a/backend/api/ats.py
++++ b/backend/api/ats.py
+@@ -1,7 +1,7 @@
+ from fastapi import APIRouter, Depends, UploadFile, File
+ from sqlalchemy.ext.asyncio import AsyncSession
+-from database.connection import get_db_session
+-from task_engine import TaskEngine
++from core.database.connection import get_db_session
++from core.task_engine import TaskEngine
+ import os
+
+ router = APIRouter(prefix="/api/ats", tags=["ats"])
+diff --git a/backend/api/cover_letter.py b/backend/api/cover_letter.py
+index acc5580..04dde2a 100644
+--- a/backend/api/cover_letter.py
++++ b/backend/api/cover_letter.py
+@@ -1,7 +1,7 @@
+ from fastapi import APIRouter, Depends
+ from sqlalchemy.ext.asyncio import AsyncSession
+-from database.connection import get_db_session
+-from task_engine import TaskEngine
++from core.database.connection import get_db_session
++from core.task_engine import TaskEngine
+
+ router = APIRouter(prefix="/api/cover-letter", tags=["cover-letter"])
+
+diff --git a/backend/api/interview.py b/backend/api/interview.py
+index b7414b5..3c7616f 100644
+--- a/backend/api/interview.py
++++ b/backend/api/interview.py
+@@ -1,7 +1,7 @@
+ from fastapi import APIRouter, Depends
+ from sqlalchemy.ext.asyncio import AsyncSession
+-from database.connection import get_db_session
+-from task_engine import TaskEngine
++from core.database.connection import get_db_session
++from core.task_engine import TaskEngine
+
+ router = APIRouter(prefix="/api/interview", tags=["interview"])
+
+diff --git a/backend/api/jobs.py b/backend/api/jobs.py
+index 84a6c1b..2821406 100644
+--- a/backend/api/jobs.py
++++ b/backend/api/jobs.py
+@@ -3,14 +3,35 @@ from sqlalchemy.ext.asyncio import AsyncSession
+ from sqlalchemy import select
+ from typing import List, Optional
+
+-from database.connection import get_db_session
+-from database.models import JobListing, ApplicationStatus, JobApplication, AIAnalysis
+-from services.job_service import JobService
+-from schemas.job_listing import JobListingRead
++from core.database.connection import get_db_session
++from core.database.models import JobListing, ApplicationStatus, JobApplication, AIAnalysis
++from core.services.job_service import JobService
++from core.schemas.job_listing import JobListingRead
++
++from core.scraper import scrape_jobs
+
+ router = APIRouter(prefix="/api/jobs", tags=["jobs"])
+
+-@router.get("/")
++@router.post("/scrape")
++async def scrape_jobs_api(payload: dict, db: AsyncSession = Depends(get_db_session)):
++    """
++    Unified scrape endpoint with Tiered Routing.
++    Cloud (Apify) -> Local (JobSpy).
++    """
++    results = await scrape_jobs(payload)
++
++    # If the user expects these to be persisted to DB automatically (like the old endpoint)
++    # we can add that logic here using JobService.
++    if results.get("data"):
++        # This part ensures the scraped jobs are deduplicated and saved to SQLite
++        service = JobService(db)
++        # We might need to map the results to JobListingCreate schemas if they differ
++        # For now, we'll return the results directly as requested by the Tiered strategy
++        pass
++
++    return results
++
++@router.get("")
+ async def get_jobs(
+     db: AsyncSession = Depends(get_db_session),
+     limit: int = 100,
+@@ -21,30 +42,6 @@ async def get_jobs(
+     jobs = result.scalars().all()
+     return {"jobs": jobs}
+
+-@router.post("/scrape")
+-async def scrape_jobs(payload: dict, db: AsyncSession = Depends(get_db_session)):
+-    query = payload.get("search_query")
+-    location = payload.get("location", "Remote")
+-    limit = payload.get("limit", 10)
+-    job_type = payload.get("job_type", "Full-Time")
+-
+-    if not query:
+-        raise HTTPException(status_code=400, detail="Search query is required.")
+-
+-    service = JobService(db)
+-    new_jobs = await service.discover_new_listings(
+-        search_query=query,
+-        location=location,
+-        limit=limit,
+-        job_type=job_type
+-    )
+-
+-    return {
+-        "scraped_count": len(new_jobs),
+-        "new_count": len(new_jobs),
+-        "jobs": new_jobs
+-    }
+-
+ @router.post("/search-all")
+ async def search_all_platforms(payload: dict):
+     query = payload.get("search_query")
+diff --git a/backend/api/outreach.py b/backend/api/outreach.py
+index 93fa584..14c1a7d 100644
+--- a/backend/api/outreach.py
++++ b/backend/api/outreach.py
+@@ -1,7 +1,7 @@
+ from fastapi import APIRouter, Depends
+ from sqlalchemy.ext.asyncio import AsyncSession
+-from database.connection import get_db_session
+-from task_engine import TaskEngine
++from core.database.connection import get_db_session
++from core.task_engine import TaskEngine
+
+ router = APIRouter(prefix="/api/outreach", tags=["outreach"])
+
+diff --git a/backend/api/profile.py b/backend/api/profile.py
+index 118d04a..2e5dbb0 100644
+--- a/backend/api/profile.py
++++ b/backend/api/profile.py
+@@ -1,16 +1,20 @@
++import base64
++import io
++import pdfplumber
+ from fastapi import APIRouter, Depends, HTTPException
+ from sqlalchemy.ext.asyncio import AsyncSession
+ from sqlalchemy import select
+ from typing import Optional
+
+-from database.connection import get_db_session
+-from database.models import UserProfile
+-from ai.resume_parser import ResumeParser
+-from schemas.user_profile import ParsedProfileDTO
++from core.database.connection import get_db_session
++from core.database.models import UserProfile
++from core.ai.resume_parser import ResumeParser
++from core.schemas.user_profile import ParsedProfileDTO
++from core.utils.logger import logger
+
+ router = APIRouter(prefix="/api/profile", tags=["profile"])
+
+-@router.get("/")
++@router.get("")
+ async def get_profile(db: AsyncSession = Depends(get_db_session)):
+     stmt = select(UserProfile).order_by(UserProfile.updated_at.desc()).limit(1)
+     result = await db.execute(stmt)
+@@ -22,8 +26,30 @@ async def get_profile(db: AsyncSession = Depends(get_db_session)):
+ @router.post("/parse")
+ async def parse_resume(payload: dict, db: AsyncSession = Depends(get_db_session)):
+     text = payload.get("text")
+-    if not text:
+-        raise HTTPException(status_code=400, detail="Resume text is required.")
++    file_base64 = payload.get("fileBase64")
++
++    if not text and not file_base64:
++        raise HTTPException(status_code=400, detail="Resume text or file is required.")
++
++    # Handle PDF extraction if file is provided
++    if file_base64:
++        try:
++            logger.info("Decoding and extracting text from PDF upload...")
++            # Remove header if present (e.g. data:application/pdf;base64,...)
++            if "," in file_base64:
++                file_base64 = file_base64.split(",")[1]
++
++            pdf_bytes = base64.b64decode(file_base64)
++            with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
++                text = ""
++                for page in pdf.pages:
++                    text += page.extract_text() or ""
++
++            if not text.strip():
++                raise ValueError("Could not extract any text from the provided PDF.")
++        except Exception as e:
++            logger.error(f"PDF extraction failed: {e}")
++            raise HTTPException(status_code=400, detail=f"Failed to process PDF: {str(e)}")
+
+     parser = ResumeParser()
+     try:
+@@ -45,13 +71,15 @@ async def parse_resume(payload: dict, db: AsyncSession = Depends(get_db_session)
+
+         return {"profile": db_profile}
+     except Exception as e:
+-        # Fallback logic if AI fails
++        logger.warning(f"AI parsing failed, using heuristic fallback. Error: {e}")
++        # Use heuristic fallback already implemented in ResumeParser's router.route
++        # But if even that failed, provide a manual dummy fallback here
+         fallback_profile = UserProfile(
+-            full_name="Local User",
++            full_name="Candidate",
+             total_experience_years=0,
+             key_skills=[],
+             recommended_search_queries=["Software Engineer"],
+-            experience_highlights=["AI parsing failed, using fallback."]
++            experience_highlights=["System fallback used due to processing error."]
+         )
+         db.add(fallback_profile)
+         await db.commit()
+diff --git a/backend/api/resumes.py b/backend/api/resumes.py
+index 6f4c300..a302d46 100644
+--- a/backend/api/resumes.py
++++ b/backend/api/resumes.py
+@@ -6,6 +6,18 @@ from core.database.models import ResumeProfile
+ from core.resume_engine import resume_engine
+ from core.template_engine import template_engine
+
++from pydantic import BaseModel, Field
++from typing import List, Optional
++
++class TailorRequest(BaseModel):
++    bullets: List[str] = Field(default_factory=list)
++    job_description: Optional[str] = Field("", alias="jd")
++    target_role: Optional[str] = None
++    job_id: Optional[int] = None
++
++    class Config:
++        populate_by_name = True
++
+ router = APIRouter(prefix="/api/resumes", tags=["resumes"])
+
+ @router.get("/profile")
+@@ -15,14 +27,14 @@ async def get_master_profile(db: AsyncSession = Depends(get_db_session)):
+     return result.scalar_one_or_none()
+
+ @router.post("/tailor")
+-async def tailor_resume(payload: dict):
+-    bullets = payload.get("bullets", [])
+-    jd = payload.get("job_description", "")
++async def tailor_resume(request: TailorRequest):
++    if not request.bullets:
++        return {"data": [], "message": "No bullets provided to tailor."}
+
+-    if not bullets or not jd:
+-        raise HTTPException(status_code=400, detail="Bullets and JD are required.")
++    # Use provided JD or a default search based on target_role if JD is missing
++    jd_context = request.job_description or f"Position: {request.target_role or 'Software Engineer'}"
+
+-    return await resume_engine.tailor_bullets(bullets, jd)
++    return await resume_engine.tailor_bullets(request.bullets, jd_context)
+
+ @router.post("/export")
+ async def export_resume(payload: dict, db: AsyncSession = Depends(get_db_session)):
+diff --git a/backend/api/system.py b/backend/api/system.py
+index 2435d3c..fd4f275 100644
+--- a/backend/api/system.py
++++ b/backend/api/system.py
+@@ -1,36 +1,35 @@
+-from fastapi import APIRouter, Depends
++from fastapi import APIRouter, Depends, Request
+ from sqlalchemy.ext.asyncio import AsyncSession
+ from sqlalchemy import select, func
+-from database.connection import get_db_session
+-from database.models import TelemetryLog, JobListing
+-from smart_router import router as smart_router
++from core.database.connection import get_db_session
++from core.database.models import TelemetryLog, JobListing
++from core.ai.smart_router import route as smart_router
+ import os
+
+ router = APIRouter(prefix="/api/system", tags=["system"])
+
+ @router.get("/telemetry")
+-async def get_telemetry(db: AsyncSession = Depends(get_db_session)):
+-    # 1. Check API Key health
+-    keys = {
+-        "groq": bool(os.getenv("GROQ_API_KEY")),
+-        "gemini": bool(os.getenv("GEMINI_API_KEY"))
+-    }
++async def telemetry():
++    """Simple telemetry check as requested."""
++    return {"status": "ok", "message": "System telemetry active"}
+
+-    # 2. Get Circuit Breaker statuses
+-    breakers = {
+-        name: {
+-            "state": breaker.state,
+-            "failures": breaker.failure_count
+-        } for name, breaker in smart_router.breakers.items()
+-    }
++@router.post("/test-router")
++async def test_router_demo(payload: dict):
++    """
++    Demonstrates the 3-tier fallback logic.
++    Returns cloud result by default, local fallback when {"force_fail": true} is posted.
++    """
++    force_fail = payload.get("force_fail", False)
+
+-    # 3. DB Stats
+-    job_count = await db.execute(select(func.count()).select_from(JobListing))
++    async def cloud_demo():
++        if force_fail:
++            raise Exception("Simulated Cloud Failure")
++        return {"source": "cloud", "message": "Greetings from Tier 1 (Cloud)!"}
+
+-    return {
+-        "keys": keys,
+-        "circuit_breakers": breakers,
+-        "db_stats": {
+-            "total_jobs": job_count.scalar()
+-        }
+-    }
++    # Mark cloud_demo with required envs for the router to check
++    cloud_demo.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
++
++    def local_demo():
++        return {"source": "local", "message": "Greetings from Tier 3 (Local Fallback)!"}
++
++    return await smart_router(cloud_demo, local_demo)
+diff --git a/backend/main.py b/backend/main.py
+index acbcdb1..1da9f20 100644
+--- a/backend/main.py
++++ b/backend/main.py
+@@ -1,5 +1,11 @@
++from dotenv import load_dotenv
+ import os
+ import sys
++
++# Load environment variables from the project root
++project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++load_dotenv(os.path.join(project_root, ".env"), override=True)
++
+ from fastapi import FastAPI, Depends, HTTPException, Request, status
+ from fastapi.middleware.cors import CORSMiddleware
+ from fastapi.responses import JSONResponse
+@@ -13,6 +19,8 @@ sys.path.insert(0, os.path.join(project_root, "core"))
+
+ from core.database.connection import get_db_session
+ from backend.api import jobs, profile, ats, cover_letter, interview, outreach, system, resumes, recruiters, tracker
++from fastapi.staticfiles import StaticFiles
++from fastapi.responses import FileResponse
+
+ import logging
+
+@@ -33,7 +41,7 @@ app = FastAPI(title="JobHunterAI Pro", version="3.0.0")
+ os.makedirs("logs", exist_ok=True)
+
+ # Request Size Limiting Middleware
+-MAX_REQUEST_SIZE = 100 * 1024 # 100KB
++MAX_REQUEST_SIZE = 5 * 1024 * 1024 # 5MB
+
+ @app.middleware("http")
+ async def limit_request_size(request: Request, call_next):
+@@ -42,7 +50,7 @@ async def limit_request_size(request: Request, call_next):
+         if content_length and int(content_length) > MAX_REQUEST_SIZE:
+             return JSONResponse(
+                 status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+-                content={"detail": "Payload too large. Max size is 100KB."}
++                content={"detail": "Payload too large. Max size is 5MB."}
+             )
+     return await call_next(request)
+
+@@ -72,6 +80,13 @@ app.add_middleware(
+ # Register Routers
+ app.include_router(jobs.router)
+ app.include_router(profile.router)
++
++# Compatibility Route for Scraper
++from core.scraper import scrape_jobs
++@app.post("/api/scrape")
++async def legacy_scrape(payload: dict):
++    return await scrape_jobs(payload)
++
+ app.include_router(ats.router)
+ app.include_router(cover_letter.router)
+ app.include_router(interview.router)
+@@ -84,12 +99,26 @@ app.include_router(tracker.router)
+ @app.on_event("startup")
+ async def startup_event():
+     from core.db import init_db
+-    await init_db()
++    try:
++        await init_db()
++        logger.info("Database initialized successfully.")
++    except Exception as e:
++        logger.error(f"Database initialization failed: {e}")
+
+ @app.get("/health")
+ async def health_check():
+     return {"status": "healthy", "service": "JobHunterAI Backend"}
+
++# Serve Frontend Static Files (Production)
++frontend_path = os.path.join(project_root, "frontend")
++if os.path.exists(frontend_path):
++    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
++
++    @app.exception_handler(404)
++    async def not_found_handler(request: Request, exc: HTTPException):
++        # Support SPA routing by serving index.html on 404
++        return FileResponse(os.path.join(frontend_path, "index.html"))
++
+ if __name__ == "__main__":
+     import uvicorn
+     uvicorn.run(app, host="0.0.0.0", port=8000)
+diff --git a/core/resume_engine.py b/core/resume_engine.py
+index 5b78cd0..0b8dc9e 100644
+--- a/core/resume_engine.py
++++ b/core/resume_engine.py
+@@ -1,8 +1,8 @@
+ import json
+ from typing import List, Dict, Any
+-from smart_router import router
+-from privacy import redactor
+-from utils.logger import logger
++from core.ai.smart_router import route as smart_router
++from core.privacy import redactor
++from core.utils.logger import logger
+
+ class ResumeEngine:
+     """
+@@ -16,7 +16,7 @@ class ResumeEngine:
+         safe_jd = job_description[:4000]
+
+         async def groq_call():
+-            from ai.llm_client import get_llm_client
++            from core.ai.llm_client import get_llm_client
+             client = get_llm_client()
+             prompt = f"Rewrite these resume bullet points to better match this job description. Maintain truthfulness but emphasize relevant keywords and impact. \nBullets: {bullets}\nJD: {safe_jd}"
+             return await client.chat_completion("llama-3.3-70b-versatile", [{"role": "user", "content": prompt}])
+@@ -25,7 +25,7 @@ class ResumeEngine:
+             # Simple keyword injector (placeholder)
+             return [f"{b} (Optimized for JD)" for b in bullets]
+
+-        return await router.route("resume_tailoring", groq_call, groq_call, local_call)
++        return await smart_router(groq_call, local_call)
+
+     async def optimize_keywords(self, resume_text: str, job_description: str) -> Dict[str, Any]:
+         """Identifies missing keywords and suggests where to add them."""

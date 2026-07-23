@@ -8,11 +8,11 @@ from jinja2 import Template
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from smart_router import router
-from privacy import redactor
-from caching import AICache
-from utils.logger import logger
-from database.models import JobListing, UserProfile, MatchHistory, TelemetryLog
+from core.ai.smart_router import route as smart_route
+from core.privacy import redactor
+from core.caching import AICache
+from core.utils.logger import logger
+from core.database.models import JobListing, UserProfile, MatchHistory, TelemetryLog
 
 # Optional local ML imports - loaded only if needed to keep startup fast
 _model = None
@@ -91,9 +91,10 @@ class TaskEngine:
         redacted_resume, mapping = redactor.redact(safe_resume)
 
         async def groq_call():
-            from ai.matcher import JobMatcher
+            from core.ai.matcher import JobMatcher
             matcher = JobMatcher()
             return await matcher.analyze_fit(safe_job, redacted_resume)
+        groq_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
 
         async def gemini_call():
             # In a full implementation, we'd have a specific Gemini matcher
@@ -115,7 +116,7 @@ class TaskEngine:
                 "keywords_missing": []
             }
 
-        result = await router.route("ats_analysis", groq_call, gemini_call, local_call)
+        result = await smart_route(groq_call, local_call)
 
         # 4. Persistence & Caching
         if result["success"]:
@@ -167,15 +168,16 @@ class TaskEngine:
         prompt = f"Write a professional cover letter based on this resume: {redacted_resume} and this job: {safe_job}"
 
         async def llm_call():
-            from ai.llm_client import get_llm_client
+            from core.ai.llm_client import get_llm_client
             client = get_llm_client()
             return await client.chat_completion(None, [{"role": "user", "content": prompt}])
+        llm_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
 
         def local_call():
             template = Template("Dear Hiring Manager, I am writing to express interest in the position at {{ company }}. My background in {{ skills }} makes me a strong fit...")
             return template.render(company="the company", skills="relevant technologies")
 
-        result = await router.route("cover_letter", llm_call, llm_call, local_call)
+        result = await smart_route(llm_call, local_call)
         if result["success"]:
             await self.cache.set(cache_key, result["data"])
         return result
@@ -191,14 +193,15 @@ class TaskEngine:
         prompt = f"Draft a short, professional LinkedIn outreach message for a {target_role} position at {company}."
 
         async def llm_call():
-            from ai.llm_client import get_llm_client
+            from core.ai.llm_client import get_llm_client
             client = get_llm_client()
             return await client.chat_completion(None, [{"role": "user", "content": prompt}])
+        llm_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
 
         def local_call():
             return f"Hi [Name], I noticed the {target_role} opening at {company} and would love to connect..."
 
-        result = await router.route("outreach", llm_call, llm_call, local_call)
+        result = await smart_route(llm_call, local_call)
         if result["success"]:
             await self.cache.set(cache_key, result["data"])
         return result
@@ -215,14 +218,15 @@ class TaskEngine:
         prompt = f"Generate 5 technical and 3 behavioral interview questions with suggested answers for this job: {safe_job}"
 
         async def llm_call():
-            from ai.llm_client import get_llm_client
+            from core.ai.llm_client import get_llm_client
             client = get_llm_client()
             return await client.chat_completion(None, [{"role": "user", "content": prompt}])
+        llm_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
 
         def local_call():
             return "1. Tell me about yourself. 2. What are your strengths? 3. Why do you want this job?"
 
-        result = await router.route("interview_prep", llm_call, llm_call, local_call)
+        result = await smart_route(llm_call, local_call)
         if result["success"]:
             await self.cache.set(cache_key, result["data"])
         return result

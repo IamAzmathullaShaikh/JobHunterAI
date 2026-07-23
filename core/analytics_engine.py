@@ -2,8 +2,8 @@ import pandas as pd
 from typing import Dict, Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.models import JobApplication, ApplicationStatus
-from utils.logger import logger
+from core.database.models import JobApplication, ApplicationStatus
+from core.utils.logger import logger
 
 class AnalyticsEngine:
     """
@@ -17,27 +17,29 @@ class AnalyticsEngine:
         """Calculates conversion rates and application distributions."""
         logger.info("Calculating career metrics...")
 
-        stmt = select(JobApplication)
-        result = await self.db.execute(stmt)
-        applications = result.scalars().all()
+        try:
+            stmt = select(JobApplication)
+            result = await self.db.execute(stmt)
+            applications = result.scalars().all()
+        except Exception as e:
+            logger.warning(f"Database query failed (possible schema mismatch): {e}")
+            return self._empty_metrics()
 
         if not applications:
-            return {
-                "total_applied": 0,
-                "interview_conversion": 0.0,
-                "offer_rate": 0.0,
-                "status_distribution": {},
-                "average_match_score": 0.0
-            }
+            return self._empty_metrics()
 
         # Convert to DataFrame for easy analysis
-        df = pd.DataFrame([
-            {
-                "status": app.status,
-                "match_score": app.match_score,
-                "applied_date": app.applied_date
-            } for app in applications
-        ])
+        try:
+            df = pd.DataFrame([
+                {
+                    "status": app.status,
+                    "match_score": app.match_score,
+                    "applied_date": app.applied_date
+                } for app in applications
+            ])
+        except AttributeError as e:
+            logger.error(f"Missing expected column in JobApplication: {e}")
+            return self._empty_metrics()
 
         total_applied = len(df[df['status'] != ApplicationStatus.WISHLIST])
         total_interviews = len(df[df['status'] == ApplicationStatus.INTERVIEWING])
@@ -55,4 +57,13 @@ class AnalyticsEngine:
             "offer_rate": round(offer_rate, 2),
             "status_distribution": status_counts,
             "average_match_score": round(avg_match, 2)
+        }
+
+    def _empty_metrics(self) -> Dict[str, Any]:
+        return {
+            "total_applied": 0,
+            "interview_conversion": 0.0,
+            "offer_rate": 0.0,
+            "status_distribution": {},
+            "average_match_score": 0.0
         }

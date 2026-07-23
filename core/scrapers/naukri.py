@@ -8,8 +8,8 @@ from loguru import logger
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
-from scrapers.base import BaseScraper
-from schemas.job_listing import JobListingCreate
+from core.scrapers.base import BaseScraper
+from core.schemas.job_listing import JobListingCreate
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",

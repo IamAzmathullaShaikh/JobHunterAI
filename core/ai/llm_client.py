@@ -102,8 +102,8 @@ class GeminiLLMClient(LLMClient):
         )
         return response
 
-def get_llm_client() -> LLMClient:
-    provider = os.getenv("AI_PROVIDER", "groq").lower()
+def get_llm_client(provider_override: str = None) -> LLMClient:
+    provider = provider_override or os.getenv("AI_PROVIDER", "groq").lower()
     
     if provider == "groq":
         return GroqLLMClient()

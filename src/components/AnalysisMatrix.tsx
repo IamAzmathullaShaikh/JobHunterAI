@@ -46,7 +46,7 @@ export default function AnalysisMatrix({
       }
 
       // Reload jobs
-      const jobsRes = await fetch("/api/jobs/");
+      const jobsRes = await fetch("/api/jobs");
       const jobsData = await jobsRes.json();
       onAnalysisComplete(jobsData.jobs);
       setSelectedJobId(jobId);
@@ -79,7 +79,7 @@ export default function AnalysisMatrix({
       }
 
       // Reload jobs
-      const jobsRes = await fetch("/api/jobs/");
+      const jobsRes = await fetch("/api/jobs");
       const jobsData = await jobsRes.json();
       onAnalysisComplete(jobsData.jobs);
     } catch (err: any) {
