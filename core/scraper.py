@@ -88,4 +88,19 @@ local_scrape.safe_placeholder = {"source": "error", "data": []}
 
 # --- Public API ---
 async def scrape_jobs(payload: Dict[str, Any]) -> Dict[str, Any]:
-    return await route(apify_scrape, local_scrape, payload)
+    res = await route(apify_scrape, local_scrape, payload)
+
+    # Simple Normalization
+    normalized = []
+    raw_data = res.get("data", [])
+    for job in raw_data:
+        normalized.append({
+            "title": job.get("title") or job.get("job_title") or "Unknown Title",
+            "company_name": job.get("company_name") or job.get("company") or "Unknown Company",
+            "location": job.get("location") or "Remote",
+            "url": job.get("url") or job.get("job_url") or "#",
+            "source": res.get("source", "unknown"),
+            "description_raw": job.get("description") or job.get("description_raw") or ""
+        })
+
+    return {"source": res.get("source"), "data": normalized}

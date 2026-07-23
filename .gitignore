@@ -16,6 +16,7 @@ __pycache__/
 # Local Configuration & Secrets
 .env
 *.env
+*.patch
 
 # Application Data & Databases
 *.db
@@ -25,16 +26,14 @@ jobhunter.db
 # Platform Operation Logs
 logs/
 *.log
-.venv/
-*.db
-__pycache__/
-.pytest_cache/
-*.log
-.env
-.claude/
+backend/logs/
 
 # Node/React dependencies and builds
 node_modules/
 dist/
 db.json
 .aider*
+
+# Project specific
+JobHunterAI.iml
+metadata.json
