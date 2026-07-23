@@ -13,17 +13,16 @@ async def apify_scrape(payload: Dict[str, Any]) -> Dict[str, Any]:
     token = os.getenv("APIFY_API_TOKEN")
     client = ApifyClient(token)
 
-    # Use a reliable public actor for LinkedIn job scraping
-    actor_id = os.getenv("APIFY_ACTOR_ID", "epctex/linkedin-jobs-scraper")
+    # Use a reliable public actor for job scraping
+    actor_id = os.getenv("APIFY_ACTOR_ID", "apify/google-jobs-scraper")
 
     try:
         run_input = {
             "queries": payload.get("query", "Software Engineer"),
-            "limit": payload.get("limit", 10),
+            "maxPagesPerQuery": 1,
         }
 
         logger.info(f"Calling Apify Actor: {actor_id}")
-        # Removed timeout_secs as it is deprecated/unsupported in recent apify-client versions for .call()
         run = client.actor(actor_id).call(run_input=run_input)
         results = list(client.dataset(run["defaultDatasetId"]).iterate_items())
 
@@ -68,6 +67,7 @@ async def local_scrape(payload: Dict[str, Any]) -> Dict[str, Any]:
 
         # In a real async app we'd use run_in_executor for sync libs like JobSpy
         # but for simplicity in this tiering, we call it directly.
+        # Reduced sites and added specific country parameters to minimize 403 blocks
         jobs = scrape_jobs(
             site_name=["linkedin", "indeed"],
             search_term=payload.get("query", "Software Engineer"),
