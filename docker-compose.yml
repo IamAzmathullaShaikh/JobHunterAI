@@ -1,11 +1,11 @@
 version: "3.8"
 
 services:
-  backend:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: jobhunter-ai-backend
+    container_name: jobhunter-ai-ecosystem
     restart: unless-stopped
     ports:
       - "8000:8000"
