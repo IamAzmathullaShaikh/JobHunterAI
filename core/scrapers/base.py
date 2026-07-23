@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from schemas.job_listing import JobListingCreate
+from core.schemas.job_listing import JobListingCreate
 
 class BaseScraper(ABC):
     @property

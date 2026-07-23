@@ -1,36 +1,36 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from database.connection import get_db_session
-from database.models import TelemetryLog, JobListing
-from smart_router import router as smart_router
+from core.database.connection import get_db_session
+from core.database.models import TelemetryLog, JobListing
+from core.ai.smart_router import route as smart_router
 import os
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
 @router.get("/telemetry")
-async def get_telemetry(db: AsyncSession = Depends(get_db_session)):
-    # 1. Check API Key health
-    keys = {
-        "groq": bool(os.getenv("GROQ_API_KEY")),
-        "gemini": bool(os.getenv("GEMINI_API_KEY"))
-    }
+async def telemetry():
+    """Simple telemetry check as requested."""
+    return {"status": "ok", "message": "System telemetry active"}
 
-    # 2. Get Circuit Breaker statuses
-    breakers = {
-        name: {
-            "state": breaker.state,
-            "failures": breaker.failure_count
-        } for name, breaker in smart_router.breakers.items()
-    }
+@router.post("/test-router")
+async def test_router(request: Request):
+    """
+    Demonstrates the 3-tier fallback logic.
+    Returns cloud result by default, local fallback when {"force_fail": true} is posted.
+    """
+    payload = await request.json()
 
-    # 3. DB Stats
-    job_count = await db.execute(select(func.count()).select_from(JobListing))
+    def primary_fn(data):
+        if data.get("force_fail"):
+            raise RuntimeError("Simulated cloud failure")
+        return {"source": "cloud", "data": "Cloud result"}
 
-    return {
-        "keys": keys,
-        "circuit_breakers": breakers,
-        "db_stats": {
-            "total_jobs": job_count.scalar()
-        }
-    }
+    # Mark primary_fn with required envs for the router to check
+    primary_fn.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
+
+    def fallback_fn(data):
+        return {"source": "local", "data": "Local fallback result"}
+
+    result = await smart_router(primary_fn, fallback_fn, payload)
+    return {"ok": True, "result": result}

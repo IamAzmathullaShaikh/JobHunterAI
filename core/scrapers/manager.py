@@ -3,17 +3,17 @@ from typing import List, Optional
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scrapers.base import BaseScraper
-from scrapers.linkedin import LinkedInScraper
-from scrapers.indeed import IndeedScraper
-from scrapers.naukri import NaukriScraper
-from scrapers.foundit import FounditScraper
-from scrapers.glassdoor import GlassdoorScraper
-from scrapers.google_jobs import GoogleJobsScraper
-from schemas.job_listing import JobListingCreate
-from scrapers.apify_scraper import ApifyJobScraper
-from scrapers.internshala import InternshalaScraper
-from scrapers.yc_jobs import YCJobsScraper
+from core.scrapers.base import BaseScraper
+from core.scrapers.linkedin import LinkedInScraper
+from core.scrapers.indeed import IndeedScraper
+from core.scrapers.naukri import NaukriScraper
+from core.scrapers.foundit import FounditScraper
+from core.scrapers.glassdoor import GlassdoorScraper
+from core.scrapers.google_jobs import GoogleJobsScraper
+from core.schemas.job_listing import JobListingCreate
+from core.scrapers.apify_scraper import ApifyJobScraper
+from core.scrapers.internshala import InternshalaScraper
+from core.scrapers.yc_jobs import YCJobsScraper
 
 class ScraperManager:
     def __init__(self, session: AsyncSession = None):

@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from database.models import JobListing, AIAnalysis
-from schemas.job_listing import JobListingCreate, JobListingRead
+from core.database.models import JobListing, AIAnalysis
+from core.schemas.job_listing import JobListingCreate, JobListingRead
 
 class JobRepository:
     def __init__(self, session: AsyncSession):

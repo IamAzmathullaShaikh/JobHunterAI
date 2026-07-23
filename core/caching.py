@@ -3,8 +3,8 @@ import json
 from typing import Any, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.models import LLMCache
-from utils.logger import logger
+from core.database.models import LLMCache
+from core.utils.logger import logger
 
 class AICache:
     """

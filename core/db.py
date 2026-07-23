@@ -1,5 +1,5 @@
-from database.connection import get_db_session, async_engine
-from database.models import Base
+from core.database.connection import get_db_session, async_engine
+from core.database.models import Base
 
 async def init_db():
     """Initializes the database and creates all tables."""

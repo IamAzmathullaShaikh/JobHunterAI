@@ -6,8 +6,8 @@ try:
 except ImportError:
     scrape_jobs = None
 
-from utils.logger import logger
-from schemas.job_listing import JobListingCreate
+from core.utils.logger import logger
+from core.schemas.job_listing import JobListingCreate
 
 class ScraperEngine:
     """

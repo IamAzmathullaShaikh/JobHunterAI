@@ -14,7 +14,7 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN}
-      - DATABASE_URL=sqlite:////app/data/jobhunter.db
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/jobhunter.db
     volumes:
       - jobhunter-data:/app/data
     env_file:

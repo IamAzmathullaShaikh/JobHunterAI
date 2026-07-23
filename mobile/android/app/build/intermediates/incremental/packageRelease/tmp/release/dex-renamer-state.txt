@@ -1,4 +1,0 @@
-#Tue Jul 21 17:59:29 IST 2026
-base.0=C\:\\Users\\iamsh\\StudioProjects\\JobHunterAI\\mobile\\android\\app\\build\\intermediates\\dex\\release\\minifyReleaseWithR8\\classes.dex
-path.0=classes.dex
-renamed.0=classes.dex

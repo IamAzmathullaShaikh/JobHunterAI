@@ -4,8 +4,8 @@ from typing import List, Optional
 from apify_client import ApifyClientAsync
 from loguru import logger
 
-from scrapers.base import BaseScraper
-from schemas.job_listing import JobListingCreate
+from core.scrapers.base import BaseScraper
+from core.schemas.job_listing import JobListingCreate
 from config.settings import settings
 
 class ApifyJobScraper(BaseScraper):

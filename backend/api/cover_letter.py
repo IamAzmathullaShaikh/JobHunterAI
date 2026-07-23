@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.connection import get_db_session
-from task_engine import TaskEngine
+from core.database.connection import get_db_session
+from core.task_engine import TaskEngine
 
 router = APIRouter(prefix="/api/cover-letter", tags=["cover-letter"])
 

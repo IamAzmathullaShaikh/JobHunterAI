@@ -24,30 +24,32 @@ def check_env():
             shutil.copy(".env.example", ".env")
             print_styled("Created .env from .env.example", "success")
         else:
-            env_path.write_text("PORT=8000\nNODE_ENV=development\n")
+            env_path.write_text("PORT=8000\nNODE_ENV=development\nDATABASE_URL=sqlite+aiosqlite:///./jobhunter.db\n")
 
 def update_api_keys():
     print_styled("\n--- AI Engine Configuration ---", "bold")
+    print_styled("Provide keys to enable Cloud Tiers (Groq/Gemini). Leave empty to use Tier 3 (Local).", "info")
+
     keys = {
         "GROQ_API_KEY": "Groq Llama 3.3 (Tier 1 - Fast AI)",
         "GEMINI_API_KEY": "Google Gemini 1.5 (Tier 2 - Deep AI)",
         "APIFY_API_TOKEN": "Apify Cloud (Premium Scraping)"
     }
 
-    with open(".env", "r") as f:
-        lines = f.readlines()
-
+    # Read current env
     env_dict = {}
-    for line in lines:
-        if "=" in line:
-            k, v = line.strip().split("=", 1)
-            env_dict[k] = v
+    if Path(".env").exists():
+        with open(".env", "r") as f:
+            for line in f:
+                if "=" in line and not line.startswith("#"):
+                    k, v = line.strip().split("=", 1)
+                    env_dict[k] = v
 
     updated = False
     for key, desc in keys.items():
         current = env_dict.get(key, "")
-        if current and "your_" not in current:
-            print_styled(f"✔ {desc} is already configured.", "success")
+        if current and "your_" not in current and current.strip() != "":
+            print_styled(f"✔ {desc} is configured.", "success")
             change = input(f"   Update this key? (y/N): ").lower()
             if change != 'y':
                 continue
@@ -58,12 +60,34 @@ def update_api_keys():
             updated = True
             print_styled(f"   Saved {key}.", "success")
         else:
+            env_dict[key] = "" # Ensure it's empty for fallback
+            updated = True
             print_styled(f"   ⚠️ No key provided. System will FALLBACK to Local Engine (Tier 3) for this provider.", "warning")
 
     if updated:
+        # Re-read to keep other variables
+        all_lines = []
+        if Path(".env").exists():
+            with open(".env", "r") as f:
+                all_lines = f.readlines()
+
         with open(".env", "w") as f:
+            written_keys = set()
+            for line in all_lines:
+                key_found = False
+                for k in env_dict:
+                    if line.startswith(f"{k}="):
+                        f.write(f"{k}={env_dict[k]}\n")
+                        written_keys.add(k)
+                        key_found = True
+                        break
+                if not key_found:
+                    f.write(line)
+
+            # Add missing keys
             for k, v in env_dict.items():
-                f.write(f"{k}={v}\n")
+                if k not in written_keys:
+                    f.write(f"{k}={v}\n")
 
 def run_local():
     print_styled("\n🚀 Launching JobHunterAI Local Development Ecosystem...", "bold")
@@ -73,7 +97,7 @@ def run_local():
     subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
 
     print_styled("📦 Installing Frontend dependencies...", "info")
-    subprocess.run("npm install", shell=True, check=True)
+    subprocess.run("npm install --legacy-peer-deps", shell=True, check=True)
 
     # 2. Run both using concurrently
     print_styled("⚡ Starting Backend (FastAPI) and Frontend (Vite)...", "success")

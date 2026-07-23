@@ -1,7 +1,0 @@
-- [ ] Create `DatabaseProvider.kt` for Room database access
-- [ ] Create `JobRepository.kt` for data coordination
-- [ ] Update `build.gradle.kts` with ViewModel dependencies
-- [ ] Create `JobViewModel.kt` with UI state management
-- [ ] Update `JobBoardScreen.kt` with Loading/Error states and M3 styling
-- [ ] Update `MainActivity.kt` to integrate the ViewModel
-- [ ] Verify build and functionality
