@@ -74,13 +74,13 @@ graph TD
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/JobHunterAI.git
+git clone https://github.com/IamAzmathullaShaikh/JobHunterAI.git
 cd JobHunterAI
 
 # Setup Backend
 python -m venv venv
 source venv/bin/activate # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 
 # Setup Frontend
 npm install
