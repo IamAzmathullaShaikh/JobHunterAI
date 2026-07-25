@@ -1,0 +1,6 @@
+Tailor the following resume summary for a {{ target_role }} position.
+Original Resume: {{ candidate.summary }}
+Target Skills to Highlight: {{ focus_skills | join(', ') }}
+
+The goal is to increase ATS match score against this job: {{ job.title }}.
+Only return the new tailored summary.

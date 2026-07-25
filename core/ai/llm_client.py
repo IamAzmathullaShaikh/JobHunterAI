@@ -12,33 +12,39 @@ try:
 except ImportError:
     AsyncOpenAI = None
 
+from core.config.settings import settings
+
+
 class LLMClient(ABC):
     @abstractmethod
     async def chat_completion(self, model: str, messages: list) -> Any:
         pass
 
+
 class GroqLLMClient(LLMClient):
     def __init__(self):
-        self.api_key = os.getenv("GROQ_API_KEY")
+        self.api_key = settings.GROQ_API_KEY
         if not self.api_key or not AsyncGroq:
             self.client = None
             return
 
         self.client = AsyncGroq(api_key=self.api_key)
-        self.default_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        self.default_model = settings.GROQ_MODEL
 
     async def chat_completion(self, model: str, messages: list) -> Any:
         if not self.client:
-            raise ValueError("Groq client not available (check API key or installation)")
+            raise ValueError(
+                "Groq client not available (check API key or installation)"
+            )
         response = await self.client.chat.completions.create(
-            model=model or self.default_model,
-            messages=messages
+            model=model or self.default_model, messages=messages
         )
         return response
 
+
 class OpenRouterLLMClient(LLMClient):
     def __init__(self):
-        self.api_key = os.getenv("OPENROUTER_API_KEY")
+        self.api_key = settings.OPENROUTER_API_KEY
         if not self.api_key or not AsyncOpenAI:
             self.client = None
             return
@@ -47,16 +53,16 @@ class OpenRouterLLMClient(LLMClient):
             base_url="https://openrouter.ai/api/v1",
             api_key=self.api_key,
         )
-        self.default_model = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
+        self.default_model = settings.OPENROUTER_MODEL
 
     async def chat_completion(self, model: str, messages: list) -> Any:
         if not self.client:
             raise ValueError("OpenRouter client not available")
         response = await self.client.chat.completions.create(
-            model=model or self.default_model,
-            messages=messages
+            model=model or self.default_model, messages=messages
         )
         return response
+
 
 class OllamaLLMClient(LLMClient):
     def __init__(self):
@@ -65,23 +71,23 @@ class OllamaLLMClient(LLMClient):
             return
 
         self.client = AsyncOpenAI(
-            base_url=os.getenv("OLLAMA_HOST", "http://localhost:11434/v1"),
-            api_key="ollama", # placeholder
+            base_url=settings.OLLAMA_HOST,
+            api_key="ollama",  # placeholder
         )
-        self.default_model = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:7b")
+        self.default_model = settings.OLLAMA_MODEL
 
     async def chat_completion(self, model: str, messages: list) -> Any:
         if not self.client:
             raise ValueError("Ollama client not available")
         response = await self.client.chat.completions.create(
-            model=model or self.default_model,
-            messages=messages
+            model=model or self.default_model, messages=messages
         )
         return response
 
+
 class GeminiLLMClient(LLMClient):
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY")
+        self.api_key = settings.GEMINI_API_KEY
         if not self.api_key or not AsyncOpenAI:
             self.client = None
             return
@@ -91,20 +97,20 @@ class GeminiLLMClient(LLMClient):
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             api_key=self.api_key,
         )
-        self.default_model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        self.default_model = settings.GEMINI_MODEL
 
     async def chat_completion(self, model: str, messages: list) -> Any:
         if not self.client:
             raise ValueError("Gemini client not available")
         response = await self.client.chat.completions.create(
-            model=model or self.default_model,
-            messages=messages
+            model=model or self.default_model, messages=messages
         )
         return response
 
+
 def get_llm_client(provider_override: str = None) -> LLMClient:
-    provider = provider_override or os.getenv("AI_PROVIDER", "groq").lower()
-    
+    provider = provider_override or settings.AI_PROVIDER
+
     if provider == "groq":
         return GroqLLMClient()
     elif provider == "openrouter":

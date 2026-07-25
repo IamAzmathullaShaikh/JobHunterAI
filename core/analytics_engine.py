@@ -1,9 +1,14 @@
+import logging
+from typing import Any, Dict
+
 import pandas as pd
-from typing import Dict, Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.database.models import JobApplication, ApplicationStatus
-from core.utils.logger import logger
+
+from core.database.models import ApplicationStatus, JobApplication
+
+logger = logging.getLogger(__name__)
+
 
 class AnalyticsEngine:
     """
@@ -30,33 +35,47 @@ class AnalyticsEngine:
 
         # Convert to DataFrame for easy analysis
         try:
-            df = pd.DataFrame([
-                {
-                    "status": app.status,
-                    "match_score": app.match_score,
-                    "applied_date": app.applied_date
-                } for app in applications
-            ])
+            df = pd.DataFrame(
+                [
+                    {
+                        "status": app.status,
+                        "match_score": app.match_score,
+                        "applied_date": app.applied_date,
+                    }
+                    for app in applications
+                ]
+            )
         except AttributeError as e:
             logger.error(f"Missing expected column in JobApplication: {e}")
             return self._empty_metrics()
 
-        total_applied = len(df[df['status'] != ApplicationStatus.WISHLIST])
-        total_interviews = len(df[df['status'] == ApplicationStatus.INTERVIEWING])
-        total_offers = len(df[df['status'] == ApplicationStatus.OFFERED])
+        total_applied = len(df[df["status"] != ApplicationStatus.WISHLIST])
+        total_interviews = len(df[df["status"] == ApplicationStatus.INTERVIEWING])
+        total_offers = len(df[df["status"] == ApplicationStatus.OFFERED])
 
-        interview_rate = (total_interviews / total_applied * 100) if total_applied > 0 else 0.0
+        # Safer rate calculation
+        interview_rate = (
+            (total_interviews / total_applied * 100) if total_applied > 0 else 0.0
+        )
         offer_rate = (total_offers / total_applied * 100) if total_applied > 0 else 0.0
 
-        status_counts = df['status'].value_counts().to_dict()
-        avg_match = df['match_score'].mean() if not df['match_score'].isnull().all() else 0.0
+        status_counts = df["status"].value_counts().to_dict()
+        # Convert enum keys to strings for JSON serializability
+        status_counts = {
+            str(k.value if hasattr(k, "value") else k): int(v)
+            for k, v in status_counts.items()
+        }
+
+        avg_match = (
+            df["match_score"].mean() if not df["match_score"].isnull().all() else 0.0
+        )
 
         return {
             "total_applied": total_applied,
             "interview_conversion": round(interview_rate, 2),
             "offer_rate": round(offer_rate, 2),
             "status_distribution": status_counts,
-            "average_match_score": round(avg_match, 2)
+            "average_match_score": round(avg_match, 2),
         }
 
     def _empty_metrics(self) -> Dict[str, Any]:
@@ -65,5 +84,5 @@ class AnalyticsEngine:
             "interview_conversion": 0.0,
             "offer_rate": 0.0,
             "status_distribution": {},
-            "average_match_score": 0.0
+            "average_match_score": 0.0,
         }

@@ -1,19 +1,23 @@
 import asyncio
+import logging
 import random
-from urllib.parse import quote
 from typing import List, Optional
+from urllib.parse import quote
+
 from bs4 import BeautifulSoup
-from loguru import logger
+
+logger = logging.getLogger(__name__)
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
-from core.scrapers.base import BaseScraper
 from core.schemas.job_listing import JobListingCreate
+from core.scrapers.base import BaseScraper
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
 ]
+
 
 class GlassdoorScraper(BaseScraper):
     @property
@@ -21,34 +25,36 @@ class GlassdoorScraper(BaseScraper):
         return "Glassdoor"
 
     async def scrape(
-        self, 
-        search_query: str, 
-        location: Optional[str] = None, 
-        limit: int = 10, 
-        job_type: str = "Full-Time"
+        self,
+        search_query: str,
+        location: Optional[str] = None,
+        limit: int = 10,
+        job_type: str = "Full-Time",
     ) -> List[JobListingCreate]:
         log = logger.bind(scraper=self.name)
         target_location = location or "India"
-        log.info(f"Spawning stealth instance for Query: '{search_query}' inside '{target_location}' [{job_type}]")
-        
+        log.info(
+            f"Spawning stealth instance for Query: '{search_query}' inside '{target_location}' [{job_type}]"
+        )
+
         jobs: List[JobListingCreate] = []
         url = f"https://www.glassdoor.co.in/Job/jobs.htm?sc.keyword={quote(search_query)}&locKeyword={quote(target_location)}"
 
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=True,
-                args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+                args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
             )
-            
+
             context = await browser.new_context(
                 user_agent=random.choice(USER_AGENTS),
                 locale="en-US",
-                timezone_id="Asia/Kolkata"
+                timezone_id="Asia/Kolkata",
             )
-            
+
             await Stealth().apply_stealth_async(context)
             page = await context.new_page()
-            
+
             try:
                 log.debug(f"Navigating to Glassdoor: {url}...")
                 await page.goto(url, timeout=35000, wait_until="domcontentloaded")
@@ -56,31 +62,51 @@ class GlassdoorScraper(BaseScraper):
 
                 content = await page.content()
                 soup = BeautifulSoup(content, "html.parser")
-                
+
                 cards = (
-                    soup.find_all("li", class_="JobsList_jobListItem__23312") or
-                    soup.find_all("div", attrs={"data-test": "job-listing-single"}) or
-                    soup.find_all("li", attrs={"data-test": "jobListing"})
+                    soup.find_all("li", class_="JobsList_jobListItem__23312")
+                    or soup.find_all("div", attrs={"data-test": "job-listing-single"})
+                    or soup.find_all("li", attrs={"data-test": "jobListing"})
                 )
-                
+
                 log.info(f"Discovered {len(cards)} raw cards on Glassdoor.")
 
                 for card in cards[:limit]:
                     try:
-                        title_tag = card.find("a", attrs={"data-test": "job-title"}) or card.find("a", class_="JobCard_jobTitle___y9P")
+                        title_tag = card.find(
+                            "a", attrs={"data-test": "job-title"}
+                        ) or card.find("a", class_="JobCard_jobTitle___y9P")
                         if not title_tag:
                             continue
 
                         title = title_tag.get_text(strip=True)
                         href = title_tag.get("href", "")
-                        job_url = f"https://www.glassdoor.co.in{href}" if href.startswith("/") else href
+                        job_url = (
+                            f"https://www.glassdoor.co.in{href}"
+                            if href.startswith("/")
+                            else href
+                        )
 
-                        raw_id = card.get("data-id", f"gd-{random.randint(100000, 999999)}")
-                        comp_tag = card.find("span", class_="EmployerProfile_compactEmployerName__LE242") or card.find("div", class_="EmployerProfile_employerName__93_S5")
-                        company_name = comp_tag.get_text(strip=True) if comp_tag else "Confidential"
+                        raw_id = card.get(
+                            "data-id", f"gd-{random.randint(100000, 999999)}"
+                        )
+                        comp_tag = card.find(
+                            "span", class_="EmployerProfile_compactEmployerName__LE242"
+                        ) or card.find(
+                            "div", class_="EmployerProfile_employerName__93_S5"
+                        )
+                        company_name = (
+                            comp_tag.get_text(strip=True)
+                            if comp_tag
+                            else "Confidential"
+                        )
 
-                        loc_tag = card.find("div", attrs={"data-test": "emp-location"}) or card.find("span", class_="JobCard_location__21_xW")
-                        loc_text = loc_tag.get_text(strip=True) if loc_tag else target_location
+                        loc_tag = card.find(
+                            "div", attrs={"data-test": "emp-location"}
+                        ) or card.find("span", class_="JobCard_location__21_xW")
+                        loc_text = (
+                            loc_tag.get_text(strip=True) if loc_tag else target_location
+                        )
 
                         jobs.append(
                             JobListingCreate(
@@ -93,7 +119,7 @@ class GlassdoorScraper(BaseScraper):
                                 source=self.name,
                                 url=job_url,
                                 description_raw=f"{title} position at {company_name}.",
-                                description_clean=f"{title} position at {company_name}."
+                                description_clean=f"{title} position at {company_name}.",
                             )
                         )
                     except Exception as card_err:

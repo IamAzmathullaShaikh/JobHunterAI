@@ -1,0 +1,31 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.4.0
+  hooks:
+    - id: trailing-whitespace
+    - id: end-of-file-fixer
+    - id: check-yaml
+    - id: check-added-large-files
+
+- repo: https://github.com/psf/black
+  rev: 23.3.0
+  hooks:
+    - id: black
+      language_version: python3.11
+
+- repo: https://github.com/pycqa/isort
+  rev: 5.12.0
+  hooks:
+    - id: isort
+
+- repo: https://github.com/pre-commit/mirrors-eslint
+  rev: v8.41.0
+  hooks:
+    - id: eslint
+      files: \.[jt]sx?$
+      types: [file]
+      additional_dependencies:
+        - eslint@8.41.0
+        - eslint-plugin-react@7.32.2
+        - "@typescript-eslint/eslint-plugin@5.59.7"
+        - "@typescript-eslint/parser@5.59.7"

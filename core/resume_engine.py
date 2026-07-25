@@ -1,15 +1,21 @@
 import json
-from typing import List, Dict, Any
+import logging
+from typing import Any, Dict, List
+
 from core.ai.smart_router import route as smart_router
 from core.privacy import redactor
-from core.utils.logger import logger
+
+logger = logging.getLogger(__name__)
+
 
 class ResumeEngine:
     """
     Core engine for JD-tailored resume writing and master profile management.
     """
 
-    async def tailor_bullets(self, bullets: List[str], job_description: str) -> Dict[str, Any]:
+    async def tailor_bullets(
+        self, bullets: List[str], job_description: str
+    ) -> Dict[str, Any]:
         """Rewrites resume bullets to better align with a job description."""
 
         # Redact JD for privacy (though usually JD is public, good practice)
@@ -17,9 +23,12 @@ class ResumeEngine:
 
         async def groq_call():
             from core.ai.llm_client import get_llm_client
+
             client = get_llm_client()
             prompt = f"Rewrite these resume bullet points to better match this job description. Maintain truthfulness but emphasize relevant keywords and impact. \nBullets: {bullets}\nJD: {safe_jd}"
-            return await client.chat_completion("llama-3.3-70b-versatile", [{"role": "user", "content": prompt}])
+            return await client.chat_completion(
+                "llama-3.3-70b-versatile", [{"role": "user", "content": prompt}]
+            )
 
         def local_call():
             # Simple keyword injector (placeholder)
@@ -27,9 +36,12 @@ class ResumeEngine:
 
         return await smart_router(groq_call, local_call)
 
-    async def optimize_keywords(self, resume_text: str, job_description: str) -> Dict[str, Any]:
+    async def optimize_keywords(
+        self, resume_text: str, job_description: str
+    ) -> Dict[str, Any]:
         """Identifies missing keywords and suggests where to add them."""
         # Placeholder for 3-tier routing logic
         return {"success": True, "data": "Keyword optimization logic here."}
+
 
 resume_engine = ResumeEngine()

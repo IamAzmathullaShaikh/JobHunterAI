@@ -1,21 +1,24 @@
 import base64
 import io
+import logging
+
 import pdfplumber
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import Optional
 
-from core.database.connection import get_db_session
-from core.database.models import UserProfile
 from core.ai.resume_parser import ResumeParser
-from core.schemas.user_profile import ParsedProfileDTO
-from core.utils.logger import logger
+from core.database.models import UserProfile
+from core.dependencies import get_job_service
+from core.schemas.api_payloads import ResumeParseRequest
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
 
+
 @router.get("")
-async def get_profile(db: AsyncSession = Depends(get_db_session)):
+async def get_profile(job_service: any = Depends(get_job_service)):
+    db = job_service.session
     stmt = select(UserProfile).order_by(UserProfile.updated_at.desc()).limit(1)
     result = await db.execute(stmt)
     profile = result.scalar_one_or_none()
@@ -23,10 +26,14 @@ async def get_profile(db: AsyncSession = Depends(get_db_session)):
         return {"profile": None}
     return {"profile": profile}
 
+
 @router.post("/parse")
-async def parse_resume(payload: dict, db: AsyncSession = Depends(get_db_session)):
-    text = payload.get("text")
-    file_base64 = payload.get("fileBase64")
+async def parse_resume(
+    request: ResumeParseRequest, job_service: any = Depends(get_job_service)
+):
+    db = job_service.session
+    text = request.text
+    file_base64 = request.fileBase64
 
     if not text and not file_base64:
         raise HTTPException(status_code=400, detail="Resume text or file is required.")
@@ -35,7 +42,6 @@ async def parse_resume(payload: dict, db: AsyncSession = Depends(get_db_session)
     if file_base64:
         try:
             logger.info("Decoding and extracting text from PDF upload...")
-            # Remove header if present (e.g. data:application/pdf;base64,...)
             if "," in file_base64:
                 file_base64 = file_base64.split(",")[1]
 
@@ -49,7 +55,9 @@ async def parse_resume(payload: dict, db: AsyncSession = Depends(get_db_session)
                 raise ValueError("Could not extract any text from the provided PDF.")
         except Exception as e:
             logger.error(f"PDF extraction failed: {e}")
-            raise HTTPException(status_code=400, detail=f"Failed to process PDF: {str(e)}")
+            raise HTTPException(
+                status_code=400, detail=f"Failed to process PDF: {str(e)}"
+            )
 
     parser = ResumeParser()
     try:
@@ -63,7 +71,7 @@ async def parse_resume(payload: dict, db: AsyncSession = Depends(get_db_session)
             key_skills=parsed_dto.key_skills,
             recommended_search_queries=parsed_dto.recommended_search_queries,
             experience_highlights=parsed_dto.experience_highlights,
-            raw_resume_text=text
+            raw_resume_text=text,
         )
         db.add(db_profile)
         await db.commit()
@@ -72,14 +80,12 @@ async def parse_resume(payload: dict, db: AsyncSession = Depends(get_db_session)
         return {"profile": db_profile}
     except Exception as e:
         logger.warning(f"AI parsing failed, using heuristic fallback. Error: {e}")
-        # Use heuristic fallback already implemented in ResumeParser's router.route
-        # But if even that failed, provide a manual dummy fallback here
         fallback_profile = UserProfile(
             full_name="Candidate",
             total_experience_years=0,
             key_skills=[],
             recommended_search_queries=["Software Engineer"],
-            experience_highlights=["System fallback used due to processing error."]
+            experience_highlights=["System fallback used due to processing error."],
         )
         db.add(fallback_profile)
         await db.commit()

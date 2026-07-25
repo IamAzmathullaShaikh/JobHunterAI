@@ -3,11 +3,10 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from alembic import context
 
 # 1. Force the project root into sys.path
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -15,8 +14,8 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 # 2. Import application settings and ORM metadata models
-from config.settings import settings
-from database.models import Base
+from core.config.settings import settings
+from core.database.models import Base
 
 # Alembic Config object providing access to values within alembic.ini
 config = context.config
@@ -44,10 +43,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(
-        connection=connection, 
-        target_metadata=target_metadata
-    )
+    context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():
         context.run_migrations()

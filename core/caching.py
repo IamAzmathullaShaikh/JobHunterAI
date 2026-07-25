@@ -1,10 +1,15 @@
 import hashlib
 import json
+import logging
 from typing import Any, Optional
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.database.models import LLMCache
-from core.utils.logger import logger
+
+logger = logging.getLogger(__name__)
+
 
 class AICache:
     """
@@ -15,7 +20,7 @@ class AICache:
         self.db = db_session
 
     def _generate_hash(self, text: str) -> str:
-        return hashlib.sha256(text.encode('utf-8')).hexdigest()
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     async def get(self, text: str) -> Optional[Dict[str, Any]]:
         """Retrieves a cached response if it exists."""
@@ -37,10 +42,7 @@ class AICache:
         if existing:
             return
 
-        new_cache = LLMCache(
-            hash=text_hash,
-            payload=payload
-        )
+        new_cache = LLMCache(hash=text_hash, payload=payload)
         self.db.add(new_cache)
         await self.db.commit()
         logger.info(f"Cached new response for text hash: {text_hash[:8]}...")

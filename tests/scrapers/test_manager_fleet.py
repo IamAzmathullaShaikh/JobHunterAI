@@ -3,7 +3,7 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from scrapers.manager import ScraperManager  # noqa: E402
+from core.scrapers.manager import ScraperManager  # noqa: E402
 
 
 class ActiveFleetTest(unittest.TestCase):

@@ -1,10 +1,11 @@
-import re
+import io
 import json
 import logging
-import io
-from typing import Dict, Any, Optional, List
-from core.ai.smart_router import route
+import re
+from typing import Any, Dict, List, Optional
+
 from core.ai.llm_client import get_llm_client
+from core.ai.smart_router import route
 from core.schemas.user_profile import ParsedProfileDTO
 
 try:
@@ -13,6 +14,7 @@ except ImportError:
     pdfplumber = None
 
 logger = logging.getLogger("jobhunterai.resume_parser")
+
 
 # --- Cloud Primary ---
 async def cloud_parse_resume(text: str = "", **kwargs) -> Dict[str, Any]:
@@ -41,22 +43,35 @@ async def cloud_parse_resume(text: str = "", **kwargs) -> Dict[str, Any]:
     response = await client.chat_completion(
         model=None,
         messages=[
-            {"role": "system", "content": "You are an AI career analyst extracting structured candidate profiles into JSON."},
-            {"role": "user", "content": prompt}
-        ]
+            {
+                "role": "system",
+                "content": "You are an AI career analyst extracting structured candidate profiles into JSON.",
+            },
+            {"role": "user", "content": prompt},
+        ],
     )
 
-    content = response.choices[0].message.content if hasattr(response, 'choices') else str(response)
-    match = re.search(r'\{.*\}', content, re.DOTALL)
+    content = (
+        response.choices[0].message.content
+        if hasattr(response, "choices")
+        else str(response)
+    )
+    match = re.search(r"\{.*\}", content, re.DOTALL)
     if match:
         return {"source": "cloud", "data": json.loads(match.group())}
 
     raise ValueError("Cloud returned invalid JSON format")
 
-cloud_parse_resume.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
+
+cloud_parse_resume.required_envs = [
+    ["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]
+]
+
 
 # --- Local Fallback ---
-async def local_parse_resume(text: Optional[str] = None, file_bytes: Optional[bytes] = None, **kwargs) -> Dict[str, Any]:
+async def local_parse_resume(
+    text: Optional[str] = None, file_bytes: Optional[bytes] = None, **kwargs
+) -> Dict[str, Any]:
     """Fallback: Regex-based extraction when AI is unavailable."""
     raw_text = text or ""
     if file_bytes and pdfplumber:
@@ -68,9 +83,20 @@ async def local_parse_resume(text: Optional[str] = None, file_bytes: Optional[by
 
     # Basic skill extraction via regex
     taxonomy = [
-        r"Python", r"Java", r"React", r"Node", r"FastAPI", r"Docker", r"SQL", r"AWS", r"TypeScript", r"Machine Learning"
+        r"Python",
+        r"Java",
+        r"React",
+        r"Node",
+        r"FastAPI",
+        r"Docker",
+        r"SQL",
+        r"AWS",
+        r"TypeScript",
+        r"Machine Learning",
     ]
-    found_skills = [s.replace("\\", "") for s in taxonomy if re.search(rf"\b{s}\b", raw_text, re.I)]
+    found_skills = [
+        s.replace("\\", "") for s in taxonomy if re.search(rf"\b{s}\b", raw_text, re.I)
+    ]
 
     # Try to find name (simple heuristic: first line if short)
     lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
@@ -85,25 +111,40 @@ async def local_parse_resume(text: Optional[str] = None, file_bytes: Optional[by
             "education": [],
             "total_experience_years": 0.0,
             "experience_highlights": ["Parsed via local heuristic fallback."],
-            "recommended_search_queries": [found_skills[0] if found_skills else "Software Engineer"]
-        }
+            "recommended_search_queries": [
+                found_skills[0] if found_skills else "Software Engineer"
+            ],
+        },
     }
+
 
 local_parse_resume.safe_placeholder = {
     "source": "error",
     "data": {
-        "full_name": "User", "target_roles": [], "key_skills": [],
-        "education": [], "total_experience_years": 0, "experience_highlights": [], "recommended_search_queries": []
-    }
+        "full_name": "User",
+        "target_roles": [],
+        "key_skills": [],
+        "education": [],
+        "total_experience_years": 0,
+        "experience_highlights": [],
+        "recommended_search_queries": [],
+    },
 }
+
 
 # --- Public API & Compatibility Class ---
 class ResumeParser:
     """Backward-compatible class wrapper for tiered parsing logic."""
+
     async def parse_resume(self, text: str) -> ParsedProfileDTO:
         res = await route(cloud_parse_resume, local_parse_resume, text)
         return ParsedProfileDTO(**res["data"])
 
-async def parse_resume(file_bytes: Optional[bytes] = None, text: Optional[str] = None) -> Dict[str, Any]:
+
+async def parse_resume(
+    file_bytes: Optional[bytes] = None, text: Optional[str] = None
+) -> Dict[str, Any]:
     """Functional API returning source info and raw data."""
-    return await route(cloud_parse_resume, local_parse_resume, text=text or "", file_bytes=file_bytes)
+    return await route(
+        cloud_parse_resume, local_parse_resume, text=text or "", file_bytes=file_bytes
+    )

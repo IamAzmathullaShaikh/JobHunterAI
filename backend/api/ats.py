@@ -1,28 +1,32 @@
-from fastapi import APIRouter, Depends, UploadFile, File
-from sqlalchemy.ext.asyncio import AsyncSession
-from core.database.connection import get_db_session
-from core.task_engine import TaskEngine
 import os
+
+from fastapi import APIRouter, Depends, File, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.dependencies import get_task_engine
+from core.schemas.api_payloads import MatchRequest
+from core.task_engine import TaskEngine
 
 router = APIRouter(prefix="/api/ats", tags=["ats"])
 
+
 @router.post("/match")
-async def match_ats(payload: dict, db: AsyncSession = Depends(get_db_session)):
-    engine = TaskEngine(db)
-    result = await engine.analyze_ats_fit(
-        payload.get("resume_text", ""),
-        payload.get("job_description", "")
-    )
+async def match_ats(
+    request: MatchRequest, engine: TaskEngine = Depends(get_task_engine)
+):
+    result = await engine.analyze_ats_fit(request.resume_text, request.job_description)
     return result
 
+
 @router.post("/parse-pdf")
-async def parse_pdf(file: UploadFile = File(...), db: AsyncSession = Depends(get_db_session)):
+async def parse_pdf(
+    file: UploadFile = File(...), engine: TaskEngine = Depends(get_task_engine)
+):
     # Save temp file
     temp_path = f"temp_{file.filename}"
     with open(temp_path, "wb") as f:
         f.write(await file.read())
 
-    engine = TaskEngine(db)
     result = await engine.parse_resume_pdf(temp_path)
 
     # Cleanup
