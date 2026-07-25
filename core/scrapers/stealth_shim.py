@@ -4,6 +4,7 @@ try:
 except Exception:
     stealth_sync = None
 
+
 def stealth_async(page):
     """
     Backwards-compatible shim: call the available stealth function or no-op.

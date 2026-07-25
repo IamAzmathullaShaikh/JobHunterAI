@@ -1,10 +1,12 @@
 from typing import List, Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from core.database.models import JobListing, AIAnalysis
+from core.database.models import AIAnalysis, JobListing
 from core.schemas.job_listing import JobListingCreate, JobListingRead
+
 
 class JobRepository:
     def __init__(self, session: AsyncSession):
@@ -18,7 +20,9 @@ class JobRepository:
         await self.session.refresh(db_item)
         return JobListingRead.model_validate(db_item)
 
-    async def bulk_create_ignore_duplicates(self, dtos: List[JobListingCreate]) -> List[JobListingRead]:
+    async def bulk_create_ignore_duplicates(
+        self, dtos: List[JobListingCreate]
+    ) -> List[JobListingRead]:
         """Saves new job listings while skipping items that already exist by job_id_raw."""
         saved_items: List[JobListingRead] = []
         for dto in dtos:

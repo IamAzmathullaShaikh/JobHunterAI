@@ -1,7 +1,9 @@
-import unittest
-import requests
 import json
 import time
+import unittest
+
+import requests
+
 
 class TestUrlConsistency(unittest.TestCase):
     def setUp(self):
@@ -13,31 +15,38 @@ class TestUrlConsistency(unittest.TestCase):
         payload = {
             "search_query": "React Developer",
             "location": "Remote",
-            "job_type": "Full-Time"
+            "job_type": "Full-Time",
         }
         resp = requests.post(f"{self.base_url}/api/scrape", json=payload)
         self.assertEqual(resp.status_code, 200, "Scraper endpoint should return 200")
-        
+
         data = resp.json()
         jobs = data.get("jobs", [])
         self.assertGreater(len(jobs), 0, "Should have scraped some jobs")
-        
+
         # Check first job consistency
         job = jobs[-1]
-        
+
         raw_url = job.get("raw_url", "")
         canonical_url = job.get("canonical_url", "")
         needs_validation = job.get("needs_validation", False)
-        
-        # Output DB info
-        print(f"\nLOG_DB_TEST: {job['id']} {job['title']} raw: {raw_url} canonical: {canonical_url} needs_val: {needs_validation}")
-        
-        self.assertIsNotNone(raw_url, "raw_url must exist")
-        
-        if needs_validation:
-            self.assertEqual(canonical_url, "", "canonical_url should be empty if needs validation")
-        else:
-            self.assertNotEqual(canonical_url, "", "canonical_url should exist if valid")
 
-if __name__ == '__main__':
+        # Output DB info
+        print(
+            f"\nLOG_DB_TEST: {job['id']} {job['title']} raw: {raw_url} canonical: {canonical_url} needs_val: {needs_validation}"
+        )
+
+        self.assertIsNotNone(raw_url, "raw_url must exist")
+
+        if needs_validation:
+            self.assertEqual(
+                canonical_url, "", "canonical_url should be empty if needs validation"
+            )
+        else:
+            self.assertNotEqual(
+                canonical_url, "", "canonical_url should exist if valid"
+            )
+
+
+if __name__ == "__main__":
     unittest.main()

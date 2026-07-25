@@ -1,14 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from core.database.connection import get_db_session
-from core.enricher import enricher
+
+from core.dependencies import get_enricher
+from core.enricher import Enricher
+from core.schemas.api_payloads import RecruiterSearchRequest
 
 router = APIRouter(prefix="/api/recruiters", tags=["recruiters"])
 
+
 @router.post("/find")
-async def find_recruiters(payload: dict, db: AsyncSession = Depends(get_db_session)):
-    company = payload.get("company_name")
-    dept = payload.get("department", "Engineering")
+async def find_recruiters(
+    request: RecruiterSearchRequest, enricher: Enricher = Depends(get_enricher)
+):
+    company = request.company_name
+    dept = request.department
 
     if not company:
         raise HTTPException(status_code=400, detail="Company name is required.")

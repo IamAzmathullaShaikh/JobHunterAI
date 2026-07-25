@@ -1,22 +1,28 @@
 import json
-import groq
+import logging
 from typing import Dict, Optional
-from pydantic import BaseModel, Field
+
+import groq
 from groq import AsyncGroq
-from config.settings import settings
-from utils.logger import logger
+from pydantic import BaseModel, Field
+
+from core.config.settings import settings
+
+logger = logging.getLogger(__name__)
+
 
 class ContactFinderDTO(BaseModel):
     company_name: str
     target_role: str
     suggested_search_queries: Dict[str, str] = Field(
-        ..., 
-        description="Pre-formatted search links for Google, LinkedIn, and X/Twitter to find decision makers."
+        ...,
+        description="Pre-formatted search links for Google, LinkedIn, and X/Twitter to find decision makers.",
     )
     cold_outreach_dm_template: str = Field(
-        ..., 
-        description="A concise, 3-sentence cold DM template for reaching out to founders/recruiters."
+        ...,
+        description="A concise, 3-sentence cold DM template for reaching out to founders/recruiters.",
     )
+
 
 class ContactFinderService:
     def __init__(self):
@@ -27,17 +33,21 @@ class ContactFinderService:
         else:
             self.client = None
 
-    async def find_hiring_contacts(self, company_name: str, role_title: str) -> ContactFinderDTO:
-        logger.info(f"Generating decision-maker search vectors and cold DM for '{company_name}'...")
+    async def find_hiring_contacts(
+        self, company_name: str, role_title: str
+    ) -> ContactFinderDTO:
+        logger.info(
+            f"Generating decision-maker search vectors and cold DM for '{company_name}'..."
+        )
 
         # Construct direct Google X-Ray search query URLs
-        linkedin_query = f"site:linkedin.com/in/ \"{company_name}\" AND (\"Founder\" OR \"Hiring Manager\" OR \"Recruiter\" OR \"HR\")"
-        twitter_query = f"site:twitter.com OR site:x.com \"{company_name}\" AND (\"hiring\" OR \"founder\" OR \"recruiter\")"
-        
+        linkedin_query = f'site:linkedin.com/in/ "{company_name}" AND ("Founder" OR "Hiring Manager" OR "Recruiter" OR "HR")'
+        twitter_query = f'site:twitter.com OR site:x.com "{company_name}" AND ("hiring" OR "founder" OR "recruiter")'
+
         search_urls = {
             "LinkedIn Decision Makers": f"https://www.google.com/search?q={linkedin_query.replace(' ', '+')}",
             "Twitter/X Outreach Search": f"https://www.google.com/search?q={twitter_query.replace(' ', '+')}",
-            "Company Careers Hub": f"https://www.google.com/search?q={company_name.replace(' ', '+')}+careers"
+            "Company Careers Hub": f"https://www.google.com/search?q={company_name.replace(' ', '+')}+careers",
         }
 
         template = (
@@ -55,7 +65,7 @@ class ContactFinderService:
                 response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=[{"role": "user", "content": prompt}],
-                    response_format={"type": "json_object"}
+                    response_format={"type": "json_object"},
                 )
                 data = json.loads(response.choices[0].message.content)
                 template = data.get("cold_dm", template)
@@ -66,5 +76,5 @@ class ContactFinderService:
             company_name=company_name,
             target_role=role_title,
             suggested_search_queries=search_urls,
-            cold_outreach_dm_template=template
+            cold_outreach_dm_template=template,
         )

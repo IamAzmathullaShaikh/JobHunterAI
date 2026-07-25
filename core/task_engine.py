@@ -1,31 +1,40 @@
-import os
 import json
-import pdfplumber
-import pandas as pd
-from typing import List, Dict, Any, Optional
+import logging
+import os
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
+import pdfplumber
 from jinja2 import Template
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.ai.smart_router import route as smart_route
-from core.privacy import redactor
 from core.caching import AICache
-from core.utils.logger import logger
-from core.database.models import JobListing, UserProfile, MatchHistory, TelemetryLog
+from core.database.models import (JobListing, MatchHistory, TelemetryLog,
+                                  UserProfile)
+from core.privacy import redactor
+
+logger = logging.getLogger(__name__)
 
 # Optional local ML imports - loaded only if needed to keep startup fast
 _model = None
+
 
 def get_local_model():
     global _model
     if _model is None:
         try:
             from sentence_transformers import SentenceTransformer
-            _model = SentenceTransformer('all-MiniLM-L6-v2')
+
+            _model = SentenceTransformer("all-MiniLM-L6-v2")
         except ImportError:
-            logger.error("sentence-transformers not installed. Local semantic match will fail.")
+            logger.error(
+                "sentence-transformers not installed. Local semantic match will fail."
+            )
     return _model
+
 
 class TaskEngine:
     """
@@ -43,7 +52,9 @@ class TaskEngine:
             return ""
         if len(text) <= max_chars:
             return text
-        logger.warning(f"Text too large ({len(text)} chars). Truncating to {max_chars} chars for quota safety.")
+        logger.warning(
+            f"Text too large ({len(text)} chars). Truncating to {max_chars} chars for quota safety."
+        )
         return text[:max_chars] + "... [Truncated for Token Safety]"
 
     # --- Workflow 1: PDF Resume Parsing ---
@@ -57,24 +68,23 @@ class TaskEngine:
                     text += page.extract_text() or ""
 
             # Check cache first for identical resume text
-            cached = await self.cache.get(text[:5000]) # Cache based on first 5k chars
+            cached = await self.cache.get(text[:5000])  # Cache based on first 5k chars
             if cached:
                 return {"success": True, "source": "local_cache", "data": cached}
 
             return {
                 "success": True,
                 "source": "local_pypdf",
-                "data": {
-                    "raw_text": text,
-                    "length": len(text)
-                }
+                "data": {"raw_text": text, "length": len(text)},
             }
         except Exception as e:
             logger.error(f"PDF parsing failed: {e}")
             return {"success": False, "error": str(e)}
 
     # --- Workflow 2: ATS Score & Gap Analysis ---
-    async def analyze_ats_fit(self, resume_text: str, job_description: str) -> Dict[str, Any]:
+    async def analyze_ats_fit(
+        self, resume_text: str, job_description: str
+    ) -> Dict[str, Any]:
         """Workflow 2: 3-Tiered ATS analysis with Cache & Token policing."""
 
         # 1. Policing: Truncate inputs
@@ -92,8 +102,10 @@ class TaskEngine:
 
         async def groq_call():
             from core.ai.matcher import JobMatcher
+
             matcher = JobMatcher()
             return await matcher.analyze_fit(safe_job, redacted_resume)
+
         groq_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
 
         async def gemini_call():
@@ -107,13 +119,16 @@ class TaskEngine:
 
             embeddings = model.encode([redacted_resume, safe_job])
             from sklearn.metrics.pairwise import cosine_similarity
-            score = float(cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]) * 100
+
+            score = (
+                float(cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]) * 100
+            )
 
             return {
                 "match_score": round(score, 1),
                 "fit_summary": "Semantic match calculated locally using MiniLM.",
                 "keywords_matched": [],
-                "keywords_missing": []
+                "keywords_missing": [],
             }
 
         result = await smart_route(groq_call, local_call)
@@ -125,7 +140,7 @@ class TaskEngine:
                 match_score=result["data"].get("match_score", 0),
                 fit_summary=result["data"].get("fit_summary", ""),
                 keywords_matched=result["data"].get("keywords_matched"),
-                keywords_missing=result["data"].get("keywords_missing")
+                keywords_missing=result["data"].get("keywords_missing"),
             )
             self.db.add(history)
             await self.db.commit()
@@ -137,23 +152,26 @@ class TaskEngine:
         """Workflow 3: Live scraping using JobSpy."""
         try:
             from jobspy import scrape_jobs
+
             jobs = scrape_jobs(
                 site_name=["linkedin", "indeed", "glassdoor"],
                 search_term=query,
                 location=location,
                 results_wanted=10,
                 hours_old=72,
-                country_allowed='usa', # Adjust as needed
+                country_allowed="usa",  # Adjust as needed
             )
             # Convert pandas DF to list of dicts
-            jobs_list = jobs.to_dict('records')
+            jobs_list = jobs.to_dict("records")
             return {"success": True, "source": "jobspy", "data": jobs_list}
         except Exception as e:
             logger.error(f"JobSpy scrape failed: {e}")
             return {"success": False, "error": str(e)}
 
     # --- Workflow 4: Tailored Cover Letter ---
-    async def generate_cover_letter(self, resume_text: str, job_details: str) -> Dict[str, Any]:
+    async def generate_cover_letter(
+        self, resume_text: str, job_details: str
+    ) -> Dict[str, Any]:
         """Workflow 4: 3-Tiered cover letter generation with Caching."""
 
         safe_resume = self._truncate_text(resume_text, 3000)
@@ -165,17 +183,42 @@ class TaskEngine:
             return {"success": True, "source": "local_cache", "data": cached}
 
         redacted_resume, _ = redactor.redact(safe_resume)
-        prompt = f"Write a professional cover letter based on this resume: {redacted_resume} and this job: {safe_job}"
+        prompt = f"""
+        Write a professional, high-conversion cover letter.
+        Candidate Context: {redacted_resume}
+        Target Job: {safe_job}
+
+        Guidelines:
+        1. Emphasize specific technical fit.
+        2. Quantify achievements where possible.
+        3. Use a tone that matches the company culture (based on the JD).
+        4. Return ONLY the cover letter text.
+        """
 
         async def llm_call():
             from core.ai.llm_client import get_llm_client
+
             client = get_llm_client()
-            return await client.chat_completion(None, [{"role": "user", "content": prompt}])
+            return await client.chat_completion(
+                None,
+                [
+                    {
+                        "role": "system",
+                        "content": "You are a professional technical writer specialized in hyper-tailored cover letters.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+            )
+
         llm_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
 
         def local_call():
-            template = Template("Dear Hiring Manager, I am writing to express interest in the position at {{ company }}. My background in {{ skills }} makes me a strong fit...")
-            return template.render(company="the company", skills="relevant technologies")
+            template = Template(
+                "Dear Hiring Manager, I am writing to express interest in the position at {{ company }}. My background in {{ skills }} makes me a strong fit..."
+            )
+            return template.render(
+                company="the company", skills="relevant technologies"
+            )
 
         result = await smart_route(llm_call, local_call)
         if result["success"]:
@@ -194,8 +237,12 @@ class TaskEngine:
 
         async def llm_call():
             from core.ai.llm_client import get_llm_client
+
             client = get_llm_client()
-            return await client.chat_completion(None, [{"role": "user", "content": prompt}])
+            return await client.chat_completion(
+                None, [{"role": "user", "content": prompt}]
+            )
+
         llm_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
 
         def local_call():
@@ -215,12 +262,33 @@ class TaskEngine:
         if cached:
             return {"success": True, "source": "local_cache", "data": cached}
 
-        prompt = f"Generate 5 technical and 3 behavioral interview questions with suggested answers for this job: {safe_job}"
+        prompt = f"""
+        Generate an interview preparation guide for this job.
+        Job Description: {safe_job}
+
+        Output Requirements:
+        1. 3 Technical Questions with sample answers.
+        2. 2 Behavioral Questions mapped to the STAR method (Situation, Task, Action, Result).
+        3. A 'Cheat Sheet' of key company values to mention.
+
+        Return ONLY the guide text.
+        """
 
         async def llm_call():
             from core.ai.llm_client import get_llm_client
+
             client = get_llm_client()
-            return await client.chat_completion(None, [{"role": "user", "content": prompt}])
+            return await client.chat_completion(
+                None,
+                [
+                    {
+                        "role": "system",
+                        "content": "You are an expert career coach specialized in STAR method interview preparation.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+            )
+
         llm_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
 
         def local_call():
@@ -231,25 +299,74 @@ class TaskEngine:
             await self.cache.set(cache_key, result["data"])
         return result
 
-    # --- Workflow 7: Voice Mock Interview ---
+    # --- Workflow 7: STAR Feedback Engine ---
+    async def provide_star_feedback(
+        self, question: str, response: str
+    ) -> Dict[str, Any]:
+        """Provides AI feedback on an interview response using the STAR framework."""
+        prompt = f"""
+        Analyze the following interview response using the STAR method (Situation, Task, Action, Result).
+        Question: {question}
+        User Response: {response}
+
+        Return a critique including:
+        1. STAR Completeness (which parts are missing?).
+        2. Impact Score (0-10).
+        3. A suggested 'Better Version' of the answer.
+        """
+
+        async def llm_call():
+            from core.ai.llm_client import get_llm_client
+
+            client = get_llm_client()
+            return await client.chat_completion(
+                None,
+                [
+                    {
+                        "role": "system",
+                        "content": "You are an elite interview coach providing specific, actionable STAR method feedback.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+            )
+
+        llm_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
+
+        def local_call():
+            return "Local STAR feedback: Ensure you mention a specific result with numbers."
+
+        return await smart_route(llm_call, local_call)
+
+    # --- Workflow 8: Voice Mock Interview ---
     async def mock_interview_voice(self, audio_data: Any) -> Dict[str, Any]:
         """Workflow 7: Integration placeholder for voice-to-text and AI response."""
         # This would typically involve Whisper (Tier 1) or local STT
-        return {"success": True, "source": "placeholder", "data": "Voice integration requires active audio streaming."}
+        return {
+            "success": True,
+            "source": "placeholder",
+            "data": "Voice integration requires active audio streaming.",
+        }
 
     # --- Workflow 8: Salary & Location Insights ---
     async def get_salary_insights(self, role: str, location: str) -> Dict[str, Any]:
         """Workflow 8: Salary data from Teleport or DDG."""
         try:
             import requests
+
             # Simple Teleport API check for cities
             city = location.lower().replace(" ", "-")
-            res = requests.get(f"https://api.teleport.org/api/urban_areas/slug:{city}/salaries/")
+            res = requests.get(
+                f"https://api.teleport.org/api/urban_areas/slug:{city}/salaries/"
+            )
             if res.status_code == 200:
                 return {"success": True, "source": "teleport_api", "data": res.json()}
 
             # Fallback to a static or search-based estimate
-            return {"success": True, "source": "static_data", "data": {"estimated_range": "$80k - $120k"}}
+            return {
+                "success": True,
+                "source": "static_data",
+                "data": {"estimated_range": "$80k - $120k"},
+            }
         except Exception as e:
             return {"success": False, "error": str(e)}
 

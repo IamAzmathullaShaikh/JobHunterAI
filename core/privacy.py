@@ -1,6 +1,7 @@
 import re
 from typing import Dict, Tuple
 
+
 class PIIRedactor:
     """
     Redacts and restores PII (Personally Identifiable Information) from text
@@ -9,9 +10,9 @@ class PIIRedactor:
 
     # Simple patterns for redaction
     PATTERNS = {
-        "EMAIL": r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+',
-        "PHONE": r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',
-        "ADDRESS": r'\d+\s+[a-zA-Z0-9\s,.]+?\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Court|Ct|Way|Lane|Ln|Trail|Trl|Circle|Cir|Zip|Parkway|Pkwy|Plaza|Plz)\b'
+        "EMAIL": r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+",
+        "PHONE": r"(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}",
+        "ADDRESS": r"\d+\s+[a-zA-Z0-9\s,.]+?\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Court|Ct|Way|Lane|Ln|Trail|Trl|Circle|Cir|Zip|Parkway|Pkwy|Plaza|Plz)\b",
     }
 
     def redact(self, text: str) -> Tuple[str, Dict[str, str]]:
@@ -46,6 +47,7 @@ class PIIRedactor:
             restored_text = restored_text.replace(placeholder, original)
 
         return restored_text
+
 
 # Global singleton for easy access
 redactor = PIIRedactor()

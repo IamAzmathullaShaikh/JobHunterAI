@@ -1,17 +1,22 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from core.database.connection import get_db_session
-from core.database.models import TelemetryLog, JobListing
+
 from core.ai.smart_router import route as smart_router
-import os
+from core.config.settings import settings
+from core.database.connection import get_db_session
 
 router = APIRouter(prefix="/api/system", tags=["system"])
+
 
 @router.get("/telemetry")
 async def telemetry():
     """Simple telemetry check as requested."""
-    return {"status": "ok", "message": "System telemetry active"}
+    return {
+        "status": "ok",
+        "message": "System telemetry active",
+        "env": settings.NODE_ENV,
+    }
+
 
 @router.post("/test-router")
 async def test_router(request: Request):

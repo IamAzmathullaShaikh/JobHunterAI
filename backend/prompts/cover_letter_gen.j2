@@ -1,0 +1,9 @@
+Write a professional cover letter for {{ candidate.name }}.
+Target Job: {{ job.title }} at {{ job.company }}.
+Resume Context: {{ candidate.summary }}
+Tone: {{ tone }}
+
+Requirements:
+1. Mention these skills: {{ candidate.skills | join(', ') }}
+2. Align with the job description: {{ job.description }}
+3. Keep it under 400 words.

@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from core.database.connection import get_db_session
+
+from core.dependencies import get_task_engine
+from core.schemas.api_payloads import OutreachRequest
 from core.task_engine import TaskEngine
 
 router = APIRouter(prefix="/api/outreach", tags=["outreach"])
 
-@router.post("/message")
-async def generate_outreach(payload: dict, db: AsyncSession = Depends(get_db_session)):
-    engine = TaskEngine(db)
-    return await engine.generate_outreach(
-        payload.get("target_role", ""),
-        payload.get("company", "")
-    )
+
+@router.post("")
+async def generate_outreach(
+    request: OutreachRequest, engine: TaskEngine = Depends(get_task_engine)
+):
+    return await engine.generate_outreach(request.target_role, request.company_name)

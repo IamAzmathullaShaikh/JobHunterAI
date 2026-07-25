@@ -1,47 +1,12 @@
 {
-  "name": "jobhunterai",
+  "name": "jobhunterai-root",
   "version": "1.0.0",
-  "type": "module",
+  "private": true,
   "scripts": {
-    "dev:frontend": "vite",
-    "dev:backend": "python -c \"import os, sys; sys.path.insert(0, os.getcwd()); sys.path.insert(0, os.path.join(os.getcwd(), 'core')); import uvicorn; uvicorn.run('backend.main:app', host='0.0.0.0', port=8000, reload=True)\"",
-    "dev:all": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
-    "run": "python run.py",
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "lint": "tsc --noEmit",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "@google/genai": "latest",
-    "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "lucide-react": "^0.400.0",
-    "motion": "^11.11.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/line-clamp": "^0.4.4",
-    "@tailwindcss/vite": "^4.0.0",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^7.0.0",
-    "@testing-library/react": "^16.3.2",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/node": "^20.14.9",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.4",
-    "concurrently": "^8.2.2",
-    "esbuild": "^0.28.1",
-    "jsdom": "^29.1.1",
-    "tailwindcss": "^4.0.0",
-    "tsx": "^4.15.7",
-    "typescript": "^5.5.2",
-    "vite": "^6.0.0",
-    "vitest": "^4.1.10"
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "test": "npm run test --prefix frontend",
+    "lint": "npm run lint --prefix frontend",
+    "backend": "python backend/main.py"
   }
 }
