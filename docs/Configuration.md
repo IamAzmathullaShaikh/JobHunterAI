@@ -6,10 +6,14 @@ JobHunterAI uses a central configuration system powered by `Pydantic Settings`.
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `NODE_ENV` | `development` | `development` or `production` |
+| `ENVIRONMENT` | `development` | `development` or `production`. Aliases: `NODE_ENV`. |
 | `DEBUG` | `True` | Enables debug logging and Swagger UI |
 | `DATABASE_URL` | `sqlite:///jobhunter.db` | SQLAlchemy connection string |
-| `AI_PROVIDER` | `groq` | Default provider (`groq`, `gemini`, `openai`, `ollama`) |
+| `AI_PROVIDER` | `groq` | Primary provider (`groq`, `gemini`, `openai`, `ollama`, `auto`) |
+| `DEFAULT_AI_PROVIDER`| `groq` | Used when `AI_PROVIDER=auto` |
+| `FALLBACK_AI_PROVIDER`| `gemini` | Used when `AI_PROVIDER=auto` and default fails |
+| `LOCAL_AI_PROVIDER` | `ollama` | Used when `AI_PROVIDER=auto` and fallback fails |
+| `CORS_ORIGINS` | `["*"]` | Allowed origins (CSV or JSON array) |
 | `GROQ_API_KEY` | - | Required for Groq AI features |
 | `GEMINI_API_KEY` | - | Required for Gemini AI features |
 | `APIFY_API_TOKEN` | - | Required for cloud scraping |

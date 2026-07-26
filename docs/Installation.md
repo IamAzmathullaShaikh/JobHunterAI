@@ -23,12 +23,13 @@ python -m venv venv
 source venv/bin/activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
 ### Step 3: Frontend Setup
 ```bash
-npm install
+# Install dependencies from the root
+npm install --prefix frontend
 ```
 
 ### Step 4: Environment Variables

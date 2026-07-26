@@ -37,3 +37,32 @@ Ensure your API keys are set as environment variables in your deployment platfor
 
 ### Storage
 Persistent storage must be configured for the `jobhunter.db` file if using SQLite, otherwise, data will be lost on container restart.
+
+## 4. Production Launch Checklist
+
+Before declaring a production deployment "Live", verify the following:
+
+- [ ] `ENVIRONMENT=production` is set.
+- [ ] `CORS_ORIGINS` is configured with explicit domains (no `*`).
+- [ ] Database is migrated to latest head (`alembic upgrade head`).
+- [ ] Health endpoint `/api/health` returns `healthy`.
+- [ ] AI API keys (Groq/Gemini) are valid and have sufficient quota.
+- [ ] Backup schedule is established for the database.
+- [ ] Log rotation is configured to prevent disk exhaustion.
+
+## 5. Backup & Restore
+
+### SQLite Backup (Local)
+To backup the local database, simply copy the `jobhunter.db` file:
+```bash
+cp /app/data/jobhunter.db /backups/jobhunter_$(date +%F).db
+```
+
+### PostgreSQL Backup
+If using PostgreSQL, use `pg_dump`:
+```bash
+pg_dump $DATABASE_URL > backup.sql
+```
+
+### Restore
+To restore, replace the `jobhunter.db` file (SQLite) or run the SQL script (Postgres).
