@@ -131,21 +131,33 @@ class TaskEngine:
                 "keywords_missing": [],
             }
 
-        result = await smart_route(groq_call, local_call)
+        result_data = await smart_route(groq_call, local_call)
 
         # 4. Persistence & Caching
-        if result["success"]:
-            await self.cache.set(cache_key, result["data"])
+        # Normalize result for uniform API response
+        is_success = isinstance(result_data, dict) and "match_score" in result_data
+        final_result = {
+            "success": is_success,
+            "source": "cloud" if is_success and "(local)" not in str(result_data) else "local",
+            "data": result_data
+        }
+
+        if is_success:
+            await self.cache.set(cache_key, result_data)
             history = MatchHistory(
-                match_score=result["data"].get("match_score", 0),
-                fit_summary=result["data"].get("fit_summary", ""),
-                keywords_matched=result["data"].get("keywords_matched"),
-                keywords_missing=result["data"].get("keywords_missing"),
+                match_score=result_data.get("match_score", 0),
+                readability_score=result_data.get("readability_score", 0),
+                action_verb_score=result_data.get("action_verb_score", 0),
+                formatting_score=result_data.get("formatting_score", 0),
+                quantification_score=result_data.get("quantification_score", 0),
+                fit_summary=result_data.get("fit_summary", ""),
+                keywords_matched=result_data.get("keywords_matched"),
+                keywords_missing=result_data.get("keywords_missing"),
             )
             self.db.add(history)
             await self.db.commit()
 
-        return result
+        return final_result
 
     # --- Workflow 3: Live Job Scraping ---
     async def search_jobs(self, query: str, location: str = "Remote") -> Dict[str, Any]:
@@ -199,7 +211,7 @@ class TaskEngine:
             from core.ai.llm_client import get_llm_client
 
             client = get_llm_client()
-            return await client.chat_completion(
+            response = await client.chat_completion(
                 None,
                 [
                     {
@@ -208,6 +220,11 @@ class TaskEngine:
                     },
                     {"role": "user", "content": prompt},
                 ],
+            )
+            return (
+                response.choices[0].message.content
+                if hasattr(response, "choices")
+                else str(response)
             )
 
         llm_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
@@ -220,10 +237,257 @@ class TaskEngine:
                 company="the company", skills="relevant technologies"
             )
 
-        result = await smart_route(llm_call, local_call)
-        if result["success"]:
-            await self.cache.set(cache_key, result["data"])
-        return result
+        result_data = await smart_route(llm_call, local_call)
+
+        # Handle formatting: if result_data is a dict (maybe from a previous version of router), extract text
+        text_content = result_data.get("data") if isinstance(result_data, dict) else result_data
+
+        final_result = {
+            "success": True,
+            "cover_letter": text_content,
+            "data": text_content, # compatibility
+            "source": "cloud" if "Dear Hiring Manager" not in str(text_content) else "local"
+        }
+
+        if final_result["success"]:
+            await self.cache.set(cache_key, text_content)
+        return final_result
+
+    async def generate_cover_letter_structured(
+        self,
+        resume_content: Dict[str, Any],
+        job_description: str,
+        writing_style: str = "Professional",
+        company_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Workflow 4B: Grounded, styled, and structured cover letter generation."""
+
+        safe_jd = self._truncate_text(job_description, 3000)
+        cache_key = f"cl_struct_{hash(str(resume_content))}_{safe_jd[:500]}_{writing_style}"
+
+        cached = await self.cache.get(cache_key)
+        if cached:
+            return {"success": True, "source": "local_cache", "data": cached}
+
+        prompt = f"""
+        You are an expert career coach and technical writer.
+        Generate a highly personalized, structured cover letter.
+
+        Writing Style: {writing_style}
+        Target Company: {company_name or 'the company'}
+
+        Candidate Resume Context (DO NOT HALLUCINATE):
+        {json.dumps(resume_content)}
+
+        Target Job Description:
+        {safe_jd}
+
+        Strict Output Format (JSON only):
+        {{
+            "salutation": "...",
+            "opening": "...",
+            "why_us": "...",
+            "experience_highlight": "...",
+            "closing": "...",
+            "sign_off": "..."
+        }}
+
+        Rules:
+        1. Ground everything in the resume. If a skill isn't there, don't mention it.
+        2. Adjust tone based on the style: {writing_style}.
+        3. Make the "why_us" section specifically reference the JD context.
+        """
+
+        async def llm_call():
+            from core.ai.llm_client import Capability, get_llm_client
+            client = get_llm_client()
+            model = client.get_model_for_capability(Capability.REASONING)
+            response = await client.chat_completion(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            content = response.choices[0].message.content if hasattr(response, "choices") else str(response)
+
+            import re
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            if match:
+                return json.loads(match.group())
+            raise ValueError("Failed to parse AI JSON response")
+
+        def local_call():
+            return {
+                "salutation": "Dear Hiring Manager,",
+                "opening": f"I am writing to express my interest in the role at {company_name or 'your company'}.",
+                "why_us": "Your company's mission aligns perfectly with my career goals.",
+                "experience_highlight": "In my previous roles, I have demonstrated a strong ability to deliver results.",
+                "closing": "Thank you for your time and consideration.",
+                "sign_off": "Best regards,"
+            }
+
+        result_data = await smart_route(llm_call, local_call)
+
+        final_result = {
+            "success": True,
+            "data": result_data,
+            "source": "cloud" if "opening" in result_data and len(result_data["opening"]) > 50 else "local"
+        }
+
+        if final_result["success"]:
+            await self.cache.set(cache_key, result_data)
+        return final_result
+
+    async def regenerate_cl_section(
+        self,
+        section_id: str,
+        resume_content: Dict[str, Any],
+        job_description: str,
+        writing_style: str = "Professional"
+    ) -> Dict[str, Any]:
+        """Regenerates a single section of a cover letter."""
+
+        prompt = f"""
+        You are an elite career coach. Regenerate ONLY the "{section_id}" section of a cover letter.
+
+        Writing Style: {writing_style}
+
+        Candidate Context:
+        {json.dumps(resume_content)}
+
+        Target JD:
+        {job_description[:2000]}
+
+        Rules:
+        1. Return ONLY the text for the "{section_id}" paragraph.
+        2. Do not include any other sections, salutations, or sign-offs.
+        3. Ground the content in the resume and JD.
+        """
+
+        async def llm_call():
+            from core.ai.llm_client import Capability, get_llm_client
+            client = get_llm_client()
+            model = client.get_model_for_capability(Capability.REASONING)
+            response = await client.chat_completion(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            content = response.choices[0].message.content if hasattr(response, "choices") else str(response)
+
+        result_text = await smart_route(llm_call, lambda: f"Refined {section_id} paragraph.")
+
+        return {"success": True, "data": result_text}
+
+    # --- Workflow 6B: Interactive Contextual Question Generation ---
+    async def generate_contextual_questions(
+        self,
+        resume_content: Dict[str, Any],
+        job_description: str,
+        difficulty: str = "Senior",
+    ) -> List[Dict[str, Any]]:
+        """Generates 5 role-specific and resume-grounded interview questions."""
+
+        prompt = f"""
+        You are an elite technical interviewer. Generate 5 unique interview questions for a candidate.
+
+        Difficulty Level: {difficulty}
+
+        Candidate Resume:
+        {json.dumps(resume_content)}
+
+        Target Job Description:
+        {job_description[:2000]}
+
+        Requirements:
+        1. 2 Technical questions specifically probing technologies mentioned in the resume relative to the JD.
+        2. 1 Behavioral question targeting a project or achievement listed in the resume.
+        3. 1 System Design or Architecture question relative to the seniority: {difficulty}.
+        4. 1 "Company Culture" or HR question based on the JD context.
+
+        Output Format (JSON array only):
+        [
+            {{"question_text": "...", "category": "Technical"}},
+            ...
+        ]
+        """
+
+        async def llm_call():
+            from core.ai.llm_client import Capability, get_llm_client
+            client = get_llm_client()
+            model = client.get_model_for_capability(Capability.REASONING)
+            response = await client.chat_completion(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            content = response.choices[0].message.content if hasattr(response, "choices") else str(response)
+
+            import re
+            match = re.search(r"\[.*\]", content, re.DOTALL)
+            if match:
+                return json.loads(match.group())
+            raise ValueError("Failed to parse AI JSON response")
+
+        def local_call():
+            return [
+                {"question_text": "Tell me about your most challenging project.", "category": "Behavioural"},
+                {"question_text": "How do you handle technical debt?", "category": "Technical"},
+                {"question_text": f"Why are you a good fit for this {difficulty} role?", "category": "HR"},
+            ]
+
+        return await smart_route(llm_call, local_call)
+
+    # --- Workflow 7B: Deep Answer Evaluation ---
+    async def evaluate_interview_answer(
+        self, question: str, answer: str, context: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Provides detailed feedback and scoring for an interview answer."""
+
+        prompt = f"""
+        Evaluate this interview answer.
+        Question: {question}
+        User Answer: {answer}
+
+        {f"Context (Resume/JD): {context}" if context else ""}
+
+        Critique the answer based on:
+        1. STAR Method usage (for behavioral).
+        2. Technical accuracy (for technical).
+        3. Clarity and Confidence.
+
+        Output Format (JSON only):
+        {{
+            "score": 8.5,
+            "strengths": ["...", "..."],
+            "weaknesses": ["...", "..."],
+            "suggestions": "...",
+            "improved_answer": "..."
+        }}
+        """
+
+        async def llm_call():
+            from core.ai.llm_client import Capability, get_llm_client
+            client = get_llm_client()
+            model = client.get_model_for_capability(Capability.REASONING)
+            response = await client.chat_completion(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            content = response.choices[0].message.content if hasattr(response, "choices") else str(response)
+
+            import re
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            if match:
+                return json.loads(match.group())
+            raise ValueError("Failed to parse AI evaluation JSON")
+
+        def local_call():
+            return {
+                "score": 5.0,
+                "strengths": ["Answer provided"],
+                "weaknesses": ["Local analysis limited"],
+                "suggestions": "Try to use the STAR method.",
+                "improved_answer": "I don't have a local improved answer yet."
+            }
+
+        return await smart_route(llm_call, local_call)
 
     # --- Workflow 5: Recruiter Outreach DM ---
     async def generate_outreach(self, target_role: str, company: str) -> Dict[str, Any]:
@@ -236,11 +500,17 @@ class TaskEngine:
         prompt = f"Draft a short, professional LinkedIn outreach message for a {target_role} position at {company}."
 
         async def llm_call():
-            from core.ai.llm_client import get_llm_client
+            from core.ai.llm_client import Capability, get_llm_client
 
             client = get_llm_client()
-            return await client.chat_completion(
-                None, [{"role": "user", "content": prompt}]
+            model = client.get_model_for_capability(Capability.REASONING)
+            response = await client.chat_completion(
+                model=model, messages=[{"role": "user", "content": prompt}]
+            )
+            return (
+                response.choices[0].message.content
+                if hasattr(response, "choices")
+                else str(response)
             )
 
         llm_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
@@ -248,10 +518,58 @@ class TaskEngine:
         def local_call():
             return f"Hi [Name], I noticed the {target_role} opening at {company} and would love to connect..."
 
-        result = await smart_route(llm_call, local_call)
-        if result["success"]:
-            await self.cache.set(cache_key, result["data"])
-        return result
+        result_data = await smart_route(llm_call, local_call)
+
+        final_result = {
+            "success": True,
+            "data": result_data,
+            "source": "cloud" if "Hi [Name]" not in str(result_data) else "local"
+        }
+
+        if final_result["success"]:
+            await self.cache.set(cache_key, result_data)
+        return final_result
+
+    async def generate_recruiter_outreach(
+        self,
+        recruiter_name: str,
+        recruiter_title: str,
+        company_name: str,
+        resume_content: Dict[str, Any],
+        message_type: str = "Intro",
+        writing_style: str = "Professional"
+    ) -> Dict[str, Any]:
+        """Workflow 5B: Context-aware and styled recruiter outreach generation."""
+
+        prompt = f"""
+        Draft a high-conversion {message_type} message for a recruiter on LinkedIn.
+
+        Writing Style: {writing_style}
+        Recruiter: {recruiter_name} ({recruiter_title} at {company_name})
+
+        Candidate Context:
+        {json.dumps(resume_content)}
+
+        Guidelines:
+        1. Tone: {writing_style}.
+        2. Reference a specific achievement from the resume that matches the recruiter's company profile.
+        3. Keep it concise (under 100 words).
+        4. Return ONLY the message text.
+        """
+
+        async def llm_call():
+            from core.ai.llm_client import Capability, get_llm_client
+            client = get_llm_client()
+            model = client.get_model_for_capability(Capability.REASONING)
+            response = await client.chat_completion(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            content = response.choices[0].message.content if hasattr(response, "choices") else str(response)
+
+        result_text = await smart_route(llm_call, lambda: f"Hi {recruiter_name}, I'm following up on my application to {company_name}...")
+
+        return {"success": True, "data": result_text}
 
     # --- Workflow 6: Interview Q&A Prep ---
     async def prepare_interview(self, job_description: str) -> Dict[str, Any]:
@@ -278,7 +596,7 @@ class TaskEngine:
             from core.ai.llm_client import get_llm_client
 
             client = get_llm_client()
-            return await client.chat_completion(
+            response = await client.chat_completion(
                 None,
                 [
                     {
@@ -288,16 +606,28 @@ class TaskEngine:
                     {"role": "user", "content": prompt},
                 ],
             )
+            return (
+                response.choices[0].message.content
+                if hasattr(response, "choices")
+                else str(response)
+            )
 
         llm_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
 
         def local_call():
             return "1. Tell me about yourself. 2. What are your strengths? 3. Why do you want this job?"
 
-        result = await smart_route(llm_call, local_call)
-        if result["success"]:
-            await self.cache.set(cache_key, result["data"])
-        return result
+        result_data = await smart_route(llm_call, local_call)
+
+        final_result = {
+            "success": True,
+            "data": result_data,
+            "source": "cloud" if "Tell me about yourself" not in str(result_data) else "local"
+        }
+
+        if final_result["success"]:
+            await self.cache.set(cache_key, result_data)
+        return final_result
 
     # --- Workflow 7: STAR Feedback Engine ---
     async def provide_star_feedback(
@@ -319,7 +649,7 @@ class TaskEngine:
             from core.ai.llm_client import get_llm_client
 
             client = get_llm_client()
-            return await client.chat_completion(
+            response = await client.chat_completion(
                 None,
                 [
                     {
@@ -329,13 +659,24 @@ class TaskEngine:
                     {"role": "user", "content": prompt},
                 ],
             )
+            return (
+                response.choices[0].message.content
+                if hasattr(response, "choices")
+                else str(response)
+            )
 
         llm_call.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
 
         def local_call():
             return "Local STAR feedback: Ensure you mention a specific result with numbers."
 
-        return await smart_route(llm_call, local_call)
+        result_data = await smart_route(llm_call, local_call)
+
+        return {
+            "success": True,
+            "data": result_data,
+            "source": "cloud" if "Local STAR" not in str(result_data) else "local"
+        }
 
     # --- Workflow 8: Voice Mock Interview ---
     async def mock_interview_voice(self, audio_data: Any) -> Dict[str, Any]:

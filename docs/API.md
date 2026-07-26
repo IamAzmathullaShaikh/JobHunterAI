@@ -7,29 +7,54 @@ Currently, the system is designed for single-user local-first use and does not r
 
 ## 2. Core Endpoints
 
-### Resumes
-- `POST /api/resumes/parse`: Upload a resume file to generate a JSON profile.
-- `GET /api/resumes/templates`: List available ATS templates.
-- `POST /api/resumes/tailor`: Tailor a resume for a specific job ID.
+### Resumes (`/api/resumes`)
+- `GET /`: List all resumes.
+- `POST /`: Create a new resume.
+- `GET /profile`: Get the master profile.
+- `PUT /profile`: Update the master profile.
+- `GET /{id}`: Get resume details.
+- `PUT /{id}`: Update resume content/template.
+- `POST /{id}/duplicate`: Duplicate an existing resume.
+- `POST /tailor`: Optimize resume bullets for a job description.
+- `POST /export`: Export a resume (PDF, DOCX, Markdown, HTML).
+- `GET /download/{filename}`: Retrieve an exported file.
 
-### Jobs
-- `GET /api/jobs`: List discovered jobs.
-- `POST /api/jobs/scrape`: Trigger a scraper run.
-- `POST /api/jobs/track`: Move a job into the CRM pipeline.
+### Jobs (`/api/jobs`)
+- `GET /`: List discovered jobs with advanced filtering.
+- `POST /scrape`: Trigger a multi-provider scraper run.
+- `POST /track`: Move a job listing into the CRM pipeline.
+- `POST /analyze`: Perform a deep ATS match analysis.
+- `GET /saved-searches`: CRUD for search configurations.
 
-### Intelligence
-- `POST /api/ats/analyze`: Perform a deep match analysis between a resume and a job.
-- `POST /api/cover-letter/generate`: Generate a cover letter.
-- `POST /api/interview/questions`: Generate mock interview questions based on a job.
+### Cover Letter (`/api/cover-letter`)
+- `GET /`: List all cover letters.
+- `POST /generate`: Generate a structured draft grounded in a resume.
+- `POST /regenerate-section`: AI-optimized paragraph refinement.
+- `POST /export`: Export a letter (PDF, HTML, Markdown).
+
+### Interview Prep (`/api/interview`)
+- `GET /sessions`: List prep sessions.
+- `POST /sessions`: Launch a new stateful mock interview.
+- `POST /questions/{id}/answer`: Submit an answer for AI evaluation.
+- `POST /sessions/{id}/finalize`: Calculate overall session scores.
+- `POST /sessions/{id}/export`: Export session summary.
+
+### Recruiters (`/api/recruiters`)
+- `POST /find`: Discover and rank recruiter leads for a company.
+- `GET /contacts`: List contacts saved in the CRM.
+- `POST /contacts`: Save a discovered lead to the CRM.
+- `POST /generate-outreach`: Create styled LinkedIn/Email drafts.
+- `GET /export`: Export CRM data to CSV/Excel.
 
 ### System
-- `GET /api/health`: Check system status and AI provider availability.
-- `GET /api/system/telemetry`: Retrieve performance metrics and circuit breaker states.
+- `GET /api/health`: Check database and AI provider status.
+- `GET /api/system/telemetry`: Performance and circuit breaker metrics.
 
 ## 3. Error Handling
-The API returns standard HTTP status codes:
+The API uses a global error handling framework:
 - `200 OK`: Success.
-- `400 Bad Request`: Validation error or missing parameters.
+- `400 Bad Request`: Validation failure.
+- `404 Not Found`: Resource not found.
 - `413 Payload Too Large`: Request body exceeds 5MB.
-- `429 Too Many Requests`: AI provider rate limit reached.
-- `500 Internal Server Error`: Critical system failure.
+- `429 Too Many Requests`: Cloud AI rate limit reached (triggers local fallback).
+- `500 Internal Server Error`: Structured error with diagnostics.

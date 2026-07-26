@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Search, ExternalLink, Bookmark, CheckCircle, Briefcase, MapPin, DollarSign } from "lucide-react";
+import { Search, ExternalLink, Bookmark, CheckCircle, Briefcase, MapPin, DollarSign, Sparkles } from "lucide-react";
 import { JobListing } from "../types.ts";
 
 interface JobsTableProps {
@@ -12,9 +12,9 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
 
   const filteredJobs = jobs.filter(
     (j) =>
-      j.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      j.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      j.location.toLowerCase().includes(searchTerm.toLowerCase())
+      (j.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (j.company_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (j.location || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -71,6 +71,7 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
                     <div className="text-xs text-slate-400 font-medium truncate">
                       {job.company_name}
                     </div>
+                    {job.seniority && <span className="text-[9px] font-black uppercase text-indigo-400 border border-indigo-500/20 px-1.5 py-0.5 rounded mt-1 inline-block">{job.seniority}</span>}
                     <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-1 truncate">
                       <MapPin className="w-3 h-3 text-slate-600" />
                       {job.location}
@@ -93,6 +94,11 @@ export default function JobsTable({ jobs, onTrackJob }: JobsTableProps) {
                       </div>
                     ) : (
                       <span className="text-slate-500 text-[11px] italic">Not specified</span>
+                    )}
+                    {job.ai_analysis && (
+                      <div className="mt-1.5 flex items-center gap-1 text-[10px] text-emerald-400 font-bold">
+                        <Sparkles className="w-3 h-3" /> {Math.round(job.ai_analysis.match_score)}% Match
+                      </div>
                     )}
                   </td>
                   <td className="py-3.5 px-4 text-right">

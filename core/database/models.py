@@ -62,6 +62,12 @@ class JobListing(Base):
     description_raw: Mapped[str] = mapped_column(Text)
     description_clean: Mapped[Optional[str]] = mapped_column(Text)
 
+    # ---- Enrichment Fields ----
+    required_skills: Mapped[Optional[list]] = mapped_column(JSON)
+    seniority: Mapped[Optional[str]] = mapped_column(String(50))
+    technologies: Mapped[Optional[list]] = mapped_column(JSON)
+    benefits: Mapped[Optional[list]] = mapped_column(JSON)
+
     # ---- Salary fields (populated by scrapers) ----
     salary_min: Mapped[Optional[float]] = mapped_column(Float)
     salary_max: Mapped[Optional[float]] = mapped_column(Float)
@@ -109,11 +115,15 @@ class AIAnalysis(Base):
     )
 
     match_score: Mapped[float] = mapped_column(Float)  # 0-100
+    readability_score: Mapped[float] = mapped_column(Float, default=0.0)
+    action_verb_score: Mapped[float] = mapped_column(Float, default=0.0)
+    formatting_score: Mapped[float] = mapped_column(Float, default=0.0)
+    quantification_score: Mapped[float] = mapped_column(Float, default=0.0)
+
     fit_summary: Mapped[str] = mapped_column(Text)
-    keywords_matched: Mapped[str] = mapped_column(
-        Text
-    )  # CSV or JSON – keep simple CSV for now
-    keywords_missing: Mapped[str] = mapped_column(Text)
+    keywords_matched: Mapped[Optional[list]] = mapped_column(JSON)
+    keywords_missing: Mapped[Optional[list]] = mapped_column(JSON)
+    detailed_recommendations: Mapped[Optional[dict]] = mapped_column(JSON)
 
     # Optional storage of generated artefacts
     suggested_resume_path: Mapped[Optional[str]] = mapped_column(String(500))
@@ -145,6 +155,10 @@ class JobApplication(Base):
     location: Mapped[str] = mapped_column(String(255), default="Remote")
     salary_range: Mapped[Optional[str]] = mapped_column(String(100))
     match_score: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # Manual Tracking
+    priority: Mapped[int] = mapped_column(Integer, default=1)  # 1-3
+    tags: Mapped[Optional[list]] = mapped_column(JSON)
 
     status: Mapped[ApplicationStatus] = mapped_column(
         Enum(ApplicationStatus), default=ApplicationStatus.WISHLIST
@@ -318,6 +332,11 @@ class MatchHistory(Base):
         ForeignKey("user_profiles.id", ondelete="CASCADE"), nullable=True
     )
     match_score: Mapped[float] = mapped_column(Float)
+    readability_score: Mapped[float] = mapped_column(Float, default=0.0)
+    action_verb_score: Mapped[float] = mapped_column(Float, default=0.0)
+    formatting_score: Mapped[float] = mapped_column(Float, default=0.0)
+    quantification_score: Mapped[float] = mapped_column(Float, default=0.0)
+
     fit_summary: Mapped[str] = mapped_column(Text)
     keywords_matched: Mapped[Optional[list]] = mapped_column(JSON)
     keywords_missing: Mapped[Optional[list]] = mapped_column(JSON)
@@ -331,19 +350,54 @@ class MatchHistory(Base):
 # ----------------------------------------------------------------------
 
 
-class RecruiterLead(Base):
-    __tablename__ = "recruiter_leads"
+class RecruiterContact(Base):
+    """CRM table for discovered recruiters and decision makers."""
+
+    __tablename__ = "recruiter_contacts"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    company_name: Mapped[str] = mapped_column(String(255), index=True)
-    person_name: Mapped[str] = mapped_column(String(255))
-    title: Mapped[str] = mapped_column(
-        String(255)
-    )  # e.g. Engineering Manager, Technical Recruiter
-    email: Mapped[Optional[str]] = mapped_column(String(255))
+    name: Mapped[str] = mapped_column(String(255))
+    title: Mapped[str] = mapped_column(String(255))
+    company: Mapped[str] = mapped_column(String(255), index=True)
+    department: Mapped[Optional[str]] = mapped_column(String(100))
+    location: Mapped[Optional[str]] = mapped_column(String(255))
     linkedin_url: Mapped[Optional[str]] = mapped_column(Text)
-    confidence_score: Mapped[float] = mapped_column(Float, default=0.8)
+    email: Mapped[Optional[str]] = mapped_column(String(255))
+    source: Mapped[Optional[str]] = mapped_column(String(50))
+    confidence_score: Mapped[float] = mapped_column(Float, default=0.0)
+    match_explanation: Mapped[Optional[str]] = mapped_column(Text)
+
+    # CRM State
+    status: Mapped[str] = mapped_column(
+        String(50), default="Not Contacted"
+    )  # Sent, Viewed, Replied, Closed
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    last_contacted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True)
+    )
+
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class OutreachMessage(Base):
+    """History of messages generated for a specific recruiter."""
+
+    __tablename__ = "outreach_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    recruiter_id: Mapped[int] = mapped_column(
+        ForeignKey("recruiter_contacts.id", ondelete="CASCADE")
+    )
+    type: Mapped[str] = mapped_column(String(50))  # Connection, Intro, Follow-up
+    content: Mapped[str] = mapped_column(Text)
+    sent_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
@@ -364,11 +418,160 @@ class ResumeProfile(Base):
         JSON, default=[]
     )  # List of dicts
     education: Mapped[Optional[list]] = mapped_column(JSON, default=[])  # List of dicts
+    projects: Mapped[Optional[list]] = mapped_column(JSON, default=[])  # List of dicts
     certifications: Mapped[Optional[list]] = mapped_column(
         JSON, default=[]
     )  # List of dicts
+    languages: Mapped[Optional[list]] = mapped_column(JSON, default=[])  # List of dicts
+    achievements: Mapped[Optional[list]] = mapped_column(
+        JSON, default=[]
+    )  # List of strings
+    awards: Mapped[Optional[list]] = mapped_column(JSON, default=[])  # List of dicts
+    publications: Mapped[Optional[list]] = mapped_column(
+        JSON, default=[]
+    )  # List of dicts
+    volunteer: Mapped[Optional[list]] = mapped_column(JSON, default=[])  # List of dicts
+    interests: Mapped[Optional[list]] = mapped_column(JSON, default=[])  # List of strings
+    references: Mapped[Optional[list]] = mapped_column(JSON, default=[])  # List of dicts
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+
+class Resume(Base):
+    """Editable Resume documents created by the user."""
+
+    __tablename__ = "resumes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    template_id: Mapped[str] = mapped_column(String(50), default="classic_ats")
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Structured JSON matching ResumeContent schema
+    content: Mapped[dict] = mapped_column(JSON)
+
+    job_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("job_listings.id", ondelete="SET NULL"), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    # Relationship to CoverLetters
+    cover_letters: Mapped[List["CoverLetter"]] = relationship(
+        back_populates="resume", cascade="all, delete-orphan"
+    )
+
+
+class SavedSearch(Base):
+    """Persisted user search configurations."""
+
+    __tablename__ = "saved_searches"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    query: Mapped[str] = mapped_column(String(255))
+    location: Mapped[str] = mapped_column(String(255))
+    job_type: Mapped[str] = mapped_column(String(50), default="Full-Time")
+    filters: Mapped[dict] = mapped_column(JSON, default={})
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class CoverLetter(Base):
+    """Targeted Cover Letter documents."""
+
+    __tablename__ = "cover_letters"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    template_id: Mapped[str] = mapped_column(String(50), default="classic_ats")
+    writing_style: Mapped[str] = mapped_column(String(50), default="Professional")
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Structured JSON matching CoverLetterContent
+    content: Mapped[dict] = mapped_column(JSON)
+
+    resume_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True
+    )
+    job_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("job_listings.id", ondelete="SET NULL"), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    # Relationships
+    resume: Mapped[Optional["Resume"]] = relationship(back_populates="cover_letters")
+
+
+class InterviewSession(Base):
+    """Persistent interview prep sessions."""
+
+    __tablename__ = "interview_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    difficulty: Mapped[str] = mapped_column(String(50), default="Senior")
+    status: Mapped[str] = mapped_column(String(50), default="Setup")  # Setup, In-Progress, Completed
+    overall_score: Mapped[Optional[float]] = mapped_column(Float)
+
+    resume_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True
+    )
+    job_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("job_listings.id", ondelete="SET NULL"), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    # Relationships
+    questions: Mapped[List["InterviewQuestion"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan"
+    )
+
+
+class InterviewQuestion(Base):
+    """Individual questions within an interview session."""
+
+    __tablename__ = "interview_questions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("interview_sessions.id", ondelete="CASCADE")
+    )
+    question_text: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(50))  # Technical, Behavioural, HR
+    user_answer: Mapped[Optional[str]] = mapped_column(Text)
+    feedback: Mapped[Optional[dict]] = mapped_column(JSON)  # Analysis results
+    score: Mapped[Optional[float]] = mapped_column(Float)
+    improved_answer: Mapped[Optional[str]] = mapped_column(Text)
+
+    # Relationships
+    session: Mapped["InterviewSession"] = relationship(back_populates="questions")

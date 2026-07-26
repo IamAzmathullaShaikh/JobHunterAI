@@ -55,7 +55,7 @@ class ExportService:
             status_val = (
                 j.application.status.value
                 if j.application
-                else ApplicationStatus.IDENTIFIED.value
+                else ApplicationStatus.WISHLIST.value
             )
 
             rows.append(
@@ -114,7 +114,7 @@ class ExportService:
             )
 
             # Status Badge Fills
-            fill_identified = PatternFill(
+            fill_wishlist = PatternFill(
                 start_color="F3F4F6", end_color="F3F4F6", fill_type="solid"
             )  # Light Gray
             fill_ai_ready = PatternFill(
@@ -175,7 +175,7 @@ class ExportService:
                         elif "REJECTED" in status_val:
                             cell.fill = fill_rejected
                         else:
-                            cell.fill = fill_identified
+                            cell.fill = fill_wishlist
 
                     # Center Aligned Metadata Columns
                     if col_num in [1, 3, 7, 8, 9, 11]:

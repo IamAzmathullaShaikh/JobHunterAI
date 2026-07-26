@@ -26,12 +26,8 @@ class ContactFinderDTO(BaseModel):
 
 class ContactFinderService:
     def __init__(self):
-        api_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else ""
-        if api_key:
-            self.client = AsyncGroq(api_key=api_key)
-            self.model = settings.GROQ_MODEL or "llama-3.3-70b-versatile"
-        else:
-            self.client = None
+        from core.ai.llm_client import get_llm_client
+        self.client = get_llm_client()
 
     async def find_hiring_contacts(
         self, company_name: str, role_title: str
@@ -56,21 +52,28 @@ class ContactFinderService:
             f"I'd love to share a quick 2-minute summary of how I can contribute to {company_name}'s goals!"
         )
 
-        if self.client:
-            try:
-                prompt = f"""
-                Create a high-converting, personalized 3-sentence Cold DM for reaching out to a Founder or Hiring Manager at {company_name} regarding the {role_title} role.
-                Output JSON: {{"cold_dm": "..."}}
-                """
-                response = await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "user", "content": prompt}],
-                    response_format={"type": "json_object"},
-                )
-                data = json.loads(response.choices[0].message.content)
+        try:
+            prompt = f"""
+            Create a high-converting, personalized 3-sentence Cold DM for reaching out to a Founder or Hiring Manager at {company_name} regarding the {role_title} role.
+            Output JSON: {{"cold_dm": "..."}}
+            """
+            response = await self.client.chat_completion(
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            content = (
+                response.choices[0].message.content
+                if hasattr(response, "choices")
+                else str(response)
+            )
+
+            import re
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            if match:
+                data = json.loads(match.group())
                 template = data.get("cold_dm", template)
-            except Exception as err:
-                logger.warning(f"Falling back to static DM template: {err}")
+        except Exception as err:
+            logger.warning(f"Falling back to static DM template: {err}")
 
         return ContactFinderDTO(
             company_name=company_name,

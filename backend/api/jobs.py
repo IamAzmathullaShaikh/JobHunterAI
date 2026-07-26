@@ -6,10 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.connection import get_db_session
 from core.database.models import (AIAnalysis, ApplicationStatus,
-                                  JobApplication, JobListing)
+                                  JobApplication, JobListing, SavedSearch)
 from core.dependencies import get_job_service, get_task_engine
 from core.schemas.api_payloads import (JobAnalysisRequest, ResumeParseRequest,
-                                       ScrapeRequest, TrackJobRequest)
+                                       SavedSearchCreate, ScrapeRequest,
+                                       TrackJobRequest)
 from core.schemas.job_listing import JobListingRead
 from core.scraper import scrape_jobs
 from core.services.job_service import JobService
@@ -26,28 +27,78 @@ async def scrape_jobs_api(
     Unified scrape endpoint with Tiered Routing.
     Cloud (Apify) -> Local (JobSpy).
     """
-    # Map back to dict if scrape_jobs expects it, or update scrape_jobs
-    payload = request.model_dump(by_alias=True)
-    results = await scrape_jobs(payload)
+    new_jobs = await job_service.discover_new_listings(
+        search_query=request.search_query,
+        location=request.location,
+        limit=request.limit,
+        job_type=request.job_type,
+    )
 
-    return results
+    return {
+        "scraped_count": len(new_jobs),
+        "new_count": len(new_jobs),
+        "jobs": new_jobs,
+    }
 
 
 @router.get("")
 async def get_jobs(
     limit: int = 100,
     offset: int = 0,
+    search: Optional[str] = None,
+    company: Optional[str] = None,
+    seniority: Optional[str] = None,
     job_service: JobService = Depends(get_job_service),
 ):
-    stmt = (
-        select(JobListing)
-        .order_by(JobListing.date_scraped.desc())
-        .limit(limit)
-        .offset(offset)
-    )
+    stmt = select(JobListing)
+
+    if search:
+        stmt = stmt.where(JobListing.title.ilike(f"%{search}%"))
+    if company:
+        stmt = stmt.where(JobListing.company_name.ilike(f"%{company}%"))
+    if seniority:
+        stmt = stmt.where(JobListing.seniority == seniority)
+
+    stmt = stmt.order_by(JobListing.date_scraped.desc()).limit(limit).offset(offset)
     result = await job_service.session.execute(stmt)
     jobs = result.scalars().all()
     return {"jobs": jobs}
+
+
+# --- Saved Searches ---
+
+
+@router.get("/saved-searches")
+async def list_saved_searches(job_service: JobService = Depends(get_job_service)):
+    db = job_service.session
+    stmt = select(SavedSearch).order_by(SavedSearch.created_at.desc())
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+@router.post("/saved-searches")
+async def save_search(
+    request: SavedSearchCreate, job_service: JobService = Depends(get_job_service)
+):
+    db = job_service.session
+    new_search = SavedSearch(**request.model_dump())
+    db.add(new_search)
+    await db.commit()
+    await db.refresh(new_search)
+    return new_search
+
+
+@router.delete("/saved-searches/{search_id}")
+async def delete_saved_search(
+    search_id: int, job_service: JobService = Depends(get_job_service)
+):
+    db = job_service.session
+    search = await db.get(SavedSearch, search_id)
+    if not search:
+        raise HTTPException(status_code=404, detail="Saved search not found")
+    await db.delete(search)
+    await db.commit()
+    return {"success": True}
 
 
 @router.post("/search-all")
@@ -56,7 +107,7 @@ async def search_all_platforms(request: ScrapeRequest):
     from core.scraper_engine import scraper_engine
 
     results = await scraper_engine.search_all(
-        payload.get("search_query"),
+        payload.get("query"),
         payload.get("location"),
         payload.get("limit"),
         [],  # platforms
@@ -78,7 +129,7 @@ async def track_job(
 
     if not job.application:
         app = JobApplication(
-            job_id=job.id, status=ApplicationStatus.IDENTIFIED, notes=""
+            job_id=job.id, status=ApplicationStatus.WISHLIST, notes=""
         )
         db.add(app)
         await db.commit()
@@ -111,7 +162,34 @@ async def analyze_job(
             status_code=500, detail=analysis_result.get("error", "AI Analysis failed")
         )
 
-    # Reload job to get updated relationship if needed, though TaskEngine saves to DB
+    # Save to AIAnalysis table for this job
+    data = analysis_result["data"]
+    if job.ai_analysis:
+        job.ai_analysis.match_score = data.get("match_score", 0)
+        job.ai_analysis.readability_score = data.get("readability_score", 0)
+        job.ai_analysis.action_verb_score = data.get("action_verb_score", 0)
+        job.ai_analysis.formatting_score = data.get("formatting_score", 0)
+        job.ai_analysis.quantification_score = data.get("quantification_score", 0)
+        job.ai_analysis.fit_summary = data.get("fit_summary", "")
+        job.ai_analysis.keywords_matched = data.get("keywords_matched", [])
+        job.ai_analysis.keywords_missing = data.get("keywords_missing", [])
+        job.ai_analysis.detailed_recommendations = data.get("detailed_recommendations", {})
+    else:
+        new_analysis = AIAnalysis(
+            job_id=job.id,
+            match_score=data.get("match_score", 0),
+            readability_score=data.get("readability_score", 0),
+            action_verb_score=data.get("action_verb_score", 0),
+            formatting_score=data.get("formatting_score", 0),
+            quantification_score=data.get("quantification_score", 0),
+            fit_summary=data.get("fit_summary", ""),
+            keywords_matched=data.get("keywords_matched", []),
+            keywords_missing=data.get("keywords_missing", []),
+            detailed_recommendations=data.get("detailed_recommendations", {}),
+        )
+        db.add(new_analysis)
+
+    await db.commit()
     await db.refresh(job)
     return {
         "job": job,

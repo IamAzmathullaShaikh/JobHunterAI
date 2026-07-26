@@ -1,19 +1,22 @@
 # Support for JobHunterAI
 
-Need help? We've got you covered.
+If you encounter any issues or have questions about JobHunterAI, we are here to help!
 
-## 1. Self-Service Documentation
-Before reaching out, please check:
-- [Installation Guide](docs/Installation.md)
-- [Troubleshooting](docs/Troubleshooting.md)
-- [FAQ](docs/FAQ.md)
+## 🐞 Reporting Bugs
+If you find a bug, please [open an issue](https://github.com/your-org/JobHunterAI/issues) on GitHub. Include:
+- A clear description of the problem.
+- Steps to reproduce the issue.
+- Your environment (Python version, Node version, OS).
+- Any relevant log output.
 
-## 2. Community Support
-- **GitHub Discussions**: The best place for "How do I?" questions and community tips. [Join the Discussion](https://github.com/your-org/JobHunterAI/discussions).
-- **GitHub Issues**: Use this for bug reports or specific feature requests.
+## 💡 Feature Requests
+Have an idea for a new feature? We'd love to hear it! Please submit feature requests through the [Issues](https://github.com/your-org/JobHunterAI/issues) page using the "Feature Request" template.
 
-## 3. Commercial Support
-If you are an enterprise user looking for custom integrations, training, or dedicated support, please contact us at `enterprise@jobhunterai.org`.
+## 🛡 Security Vulnerabilities
+Please do not report security vulnerabilities via public GitHub issues. Instead, follow our [Security Policy](SECURITY.md) to report issues privately.
 
-## 4. Response Times
-We are a community-led project. While we don't have a formal SLA, maintainers typically respond to issues and discussions within 2-3 business days.
+## 🤝 Community Support
+For general questions or community discussion, please join our [GitHub Discussions](https://github.com/your-org/JobHunterAI/discussions).
+
+---
+Thank you for using JobHunterAI!

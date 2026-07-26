@@ -1,31 +1,40 @@
 # Contributing to JobHunterAI
 
-First off, thank you for considering contributing to JobHunterAI! It's people like you that make JobHunterAI such a great tool.
+First off, thank you for considering contributing to JobHunterAI! It's people like you that make JobHunterAI such a great tool for the community.
 
-## 1. Where do I start?
-- **Bug Reports**: If you find a bug, please check the existing issues. If it's not there, open a new one with a clear description and steps to reproduce.
-- **Feature Requests**: We love new ideas! Open an issue to discuss your proposal before starting work.
+## 🏗 Development Workflow
 
-## 2. Development Workflow
+### 1. Setup
+Follow the [Quick Start](README.md#2-installation) guide to set up your local development environment.
 
-### Branch Strategy
-- `main`: Production-ready code.
-- `develop`: Ongoing development.
-- `feature/*`: New features.
-- `bugfix/*`: Fixes for existing issues.
+### 2. Branching
+- All work should be done in a feature branch: `feature/your-feature-name`.
+- Bug fixes should use: `fix/bug-description`.
+- Release branches: `release/vX.X.X`.
 
-### Pull Request Process
-1. Fork the repo and create your branch from `develop`.
-2. Ensure your code follows the project's coding standards.
-3. Add tests for any new functionality.
-4. Run the full test suite: `pytest` and `npm run test`.
-5. Update documentation if necessary.
-6. Open a PR against the `develop` branch.
+### 3. Coding Standards
+- **Python**: Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/). Use `black` for formatting and `isort` for imports.
+- **Frontend**: Use functional React components and TypeScript. Follow the established Tailwind CSS patterns.
+- **Documentation**: All new features must include updated documentation in the `docs/` folder.
 
-## 3. Coding Standards
-- **Python**: PEP 8, Type Hints, Pydantic.
-- **TypeScript**: React Functional Components, Tailwind CSS, Strict Typing.
-- **Commits**: Use [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat: add LinkedIn scraper`, `fix: handle empty resume uploads`).
+### 4. Testing
+- Run backend tests: `python -m pytest`
+- Run frontend tests: `npm run test`
+- Ensure all tests pass before submitting a Pull Request.
 
-## 4. Community
-Join our [GitHub Discussions](https://github.com/your-org/JobHunterAI/discussions) to connect with other contributors.
+## 💬 Pull Request Process
+1. Create a detailed description of the changes.
+2. Link any related issues.
+3. Ensure CI checks pass.
+4. Requests will be reviewed by a maintainer within 2-3 business days.
+
+## 🎨 Conventional Commits
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+- `feat:` for new features
+- `fix:` for bug fixes
+- `docs:` for documentation changes
+- `perf:` for performance improvements
+- `chore:` for maintenance tasks
+
+---
+Thank you for helping us build the future of AI-powered job searching!

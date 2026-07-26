@@ -35,7 +35,8 @@ def test_job_matching_logic():
     )
 
     # 3. Calculate Match
-    match = JobMatchingService.calculate_match(candidate, job)
+    service = JobMatchingService()
+    match = service.calculate_match(candidate, job)
 
     # Should match Python, but miss SQL
     assert "python" in match.matched_skills

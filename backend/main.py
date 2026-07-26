@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI):
     await AppLifecycleManager.shutdown()
 
 
-app = FastAPI(title="JobHunterAI Pro", version="3.0.0", lifespan=lifespan)
+app = FastAPI(title="JobHunterAI Pro", version="1.0.0", lifespan=lifespan)
 app.add_middleware(RequestIDMiddleware)
 
 # Ensure logs directory exists
@@ -130,15 +130,6 @@ app.include_router(resumes.router)
 app.include_router(recruiters.router)
 app.include_router(tracker.router)
 app.include_router(jobs.router)
-
-# Compatibility Route for Scraper
-from core.schemas.api_payloads import ScrapeRequest
-from core.scraper import scrape_jobs
-
-
-@app.post("/api/scrape")
-async def legacy_scrape(request: ScrapeRequest):
-    return await scrape_jobs(request.model_dump(by_alias=True))
 
 
 @app.get("/api/health")

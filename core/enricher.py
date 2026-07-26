@@ -39,6 +39,7 @@ async def cloud_find_decision_makers(company: str, role: str) -> List[Dict[str, 
                             or "Verified Contact",
                             "title": email.get("position", role),
                             "email": email.get("value"),
+                            "linkedin_url": email.get("linkedin_url", ""),
                             "source": "hunter.io",
                             "confidence_score": 0.9,
                         }
@@ -55,32 +56,30 @@ cloud_find_decision_makers.required_envs = [["APIFY_API_TOKEN", "HUNTER_API_KEY"
 
 # --- Local Fallback ---
 async def local_find_decision_makers(company: str, role: str) -> List[Dict[str, Any]]:
-    """Returns structured search card results for manual exploration."""
+    """Returns useful LinkedIn/Google search links for manual exploration."""
     logger.info(f"Local fallback: Generating search leads for {company}")
 
     q_linkedin = urllib.parse.quote(f'site:linkedin.com/in/ "{company}" "{role}"')
-    q_google = urllib.parse.quote(f'"{company}" "{role}" contact email')
+    q_google = urllib.parse.quote(f'"{company}" "{role}" recruiter email')
 
     return [
         {
-            "person_name": "LinkedIn Search",
-            "title": f"Search for {role}",
-            "email": "Use LinkedIn Message",
-            "type": "search_card",
-            "url": f"https://www.linkedin.com/search/results/people/?keywords={q_linkedin}",
-            "desc": "Search for decision makers directly on LinkedIn.",
-            "source": "local_search",
+            "person_name": f"{role} Lead @ {company}",
+            "title": f"Decision Maker Search",
+            "email": "manual-discovery@required.com",
+            "linkedin_url": f"https://www.linkedin.com/search/results/people/?keywords={q_linkedin}",
+            "source": "local_search_engine",
             "confidence_score": 0.5,
+            "match_explanation": "Search LinkedIn directly for current decision makers."
         },
         {
-            "person_name": "Google Search",
-            "title": f"Find {company} Contacts",
-            "email": "Find on Google",
-            "type": "search_card",
-            "url": f"https://www.google.com/search?q={q_google}",
-            "desc": "Find publicly listed contact information.",
-            "source": "local_search",
+            "person_name": f"{company} Talent Team",
+            "title": "Recruitment Search",
+            "email": "search-google@required.com",
+            "linkedin_url": f"https://www.google.com/search?q={q_google}",
+            "source": "local_search_engine",
             "confidence_score": 0.4,
+            "match_explanation": "Search Google for public contact details."
         },
     ]
 

@@ -53,32 +53,32 @@ export default function KanbanBoard({
   };
 
   // Define Kanban Columns
-  const columns = [
-    {
-      title: "📥 Identified & Ready",
-      statuses: [ApplicationStatus.IDENTIFIED, ApplicationStatus.AI_READY],
-      color: "border-indigo-500/45 text-indigo-300",
-      bg: "bg-indigo-950/10",
-    },
-    {
-      title: "🚀 Applied",
-      statuses: [ApplicationStatus.APPLIED],
-      color: "border-sky-500/45 text-sky-300",
-      bg: "bg-sky-950/10",
-    },
-    {
-      title: "📅 Interviewing",
-      statuses: [ApplicationStatus.INTERVIEWING],
-      color: "border-amber-500/45 text-amber-300",
-      bg: "bg-amber-950/10",
-    },
-    {
-      title: "🏆 Outcomes",
-      statuses: [ApplicationStatus.OFFER, ApplicationStatus.REJECTED, ApplicationStatus.ARCHIVED],
-      color: "border-emerald-500/45 text-emerald-300",
-      bg: "bg-emerald-950/10",
-    },
-  ];
+    const columns = [
+      {
+        title: "📥 Wishlist",
+        statuses: [ApplicationStatus.WISHLIST],
+        color: "border-indigo-500/45 text-indigo-300",
+        bg: "bg-indigo-950/10",
+      },
+      {
+        title: "🚀 Applied",
+        statuses: [ApplicationStatus.APPLIED],
+        color: "border-sky-500/45 text-sky-300",
+        bg: "bg-sky-950/10",
+      },
+      {
+        title: "📅 Interviewing",
+        statuses: [ApplicationStatus.INTERVIEWING],
+        color: "border-amber-500/45 text-amber-300",
+        bg: "bg-amber-950/10",
+      },
+      {
+        title: "🏆 Outcomes",
+        statuses: [ApplicationStatus.OFFERED, ApplicationStatus.REJECTED, ApplicationStatus.ARCHIVED],
+        color: "border-emerald-500/45 text-emerald-300",
+        bg: "bg-emerald-950/10",
+      },
+    ];
 
   return (
     <div className="space-y-6">
@@ -152,7 +152,7 @@ export default function KanbanBoard({
                       const localState = cardStates[app.id] || { status: app.status, notes: app.notes || "" };
 
                       // Determine card status badges/styling
-                      const hasOffer = app.status === ApplicationStatus.OFFER;
+                      const hasOffer = app.status === ApplicationStatus.OFFERED;
                       const hasRej = app.status === ApplicationStatus.REJECTED;
 
                       return (

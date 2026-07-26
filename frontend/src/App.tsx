@@ -38,6 +38,9 @@ import ResumeBuilder from "./components/ResumeBuilder.tsx";
 import RecruiterFinder from "./components/RecruiterFinder.tsx";
 import AnalyticsDashboard from "./components/AnalyticsDashboard.tsx";
 import JobDiscovery from "./components/JobDiscovery.tsx";
+import InterviewPrepStudio from "./components/InterviewPrepStudio.tsx";
+import CoverLetterBuilder from "./components/CoverLetterBuilder.tsx";
+import { Resume } from "./types.ts";
 
 export default function App() {
   return (
@@ -51,12 +54,17 @@ function Dashboard() {
   const [activeTab, setActiveTab] = useState<"ats" | "writer" | "builder" | "cover" | "prep" | "recruiters" | "jobs" | "kanban" | "analytics">("ats");
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [jobs, setJobs] = useState<JobListing[]>([]);
+  const [resumes, setResumes] = useState<Resume[]>([]);
   const [resumeText, setResumeText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [telemetry, setTelemetry] = useState<any>(null);
+
+  const [coverInput, setCoverInput] = useState("");
+  const [coverLetterDraft, setCoverLetterDraft] = useState("");
+  const [isGeneratingCover, setIsGeneratingCover] = useState(false);
 
   // Fetch initial profile, jobs, and telemetry
   useEffect(() => {
@@ -66,10 +74,11 @@ function Dashboard() {
         const responses = await Promise.allSettled([
           fetch("/api/profile"),
           fetch("/api/jobs"),
+          fetch("/api/resumes"),
           fetch("/api/system/telemetry")
         ]);
 
-        const [pRes, jRes, tRes] = responses;
+        const [pRes, jRes, rRes, tRes] = responses;
 
         if (pRes.status === "fulfilled" && pRes.value.ok) {
           const pData = await pRes.value.json();
@@ -79,6 +88,11 @@ function Dashboard() {
         if (jRes.status === "fulfilled" && jRes.value.ok) {
           const jData = await jRes.value.json();
           setJobs(jData.jobs || []);
+        }
+
+        if (rRes.status === "fulfilled" && rRes.value.ok) {
+          const rData = await rRes.value.json();
+          setResumes(rData || []);
         }
 
         if (tRes.status === "fulfilled" && tRes.value.ok) {
@@ -104,6 +118,30 @@ function Dashboard() {
     showToast("Scraper Pipeline run complete!");
   };
 
+  const handleGenerateCoverLetter = async () => {
+    if (!coverInput) return;
+    setIsGeneratingCover(true);
+    try {
+      const response = await fetch("/api/cover-letter/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resume_text: resumeText, job_description: coverInput })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCoverLetterDraft(data.cover_letter);
+        showToast("Cover Letter Draft Generated!");
+      } else {
+        showToast("Generation failed: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Critical error during generation.");
+    } finally {
+      setIsGeneratingCover(false);
+    }
+  };
+
   const handleTrackJob = async (jobId: number) => {
     try {
       const response = await fetch("/api/jobs/track", {
@@ -115,6 +153,25 @@ function Dashboard() {
         const resData = await response.json();
         setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, application: resData.job.application } : j)));
         showToast("Role moved into tracked pipeline!");
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  const handleUpdateApplicationCard = async (applicationId: number, status: string, notes: string) => {
+    try {
+      const response = await fetch("/api/tracker/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ application_id: applicationId, status, notes }),
+      });
+      if (response.ok) {
+        // Refresh jobs to get updated application state
+        const jRes = await fetch("/api/jobs");
+        if (jRes.ok) {
+          const jData = await jRes.json();
+          setJobs(jData.jobs || []);
+        }
+        showToast("Application updated!");
       }
     } catch (err) { console.error(err); }
   };
@@ -234,7 +291,7 @@ function Dashboard() {
 
              {activeTab === "writer" && <ResumeWriter resumeText={resumeText} />}
 
-             {activeTab === "builder" && <ResumeBuilder />}
+             {activeTab === "builder" && <ResumeBuilder profile={profile} />}
 
              {activeTab === "jobs" && (
                <JobDiscovery
@@ -247,50 +304,14 @@ function Dashboard() {
              )}
 
              {activeTab === "cover" && (
-               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center min-h-[500px] flex flex-col items-center justify-center">
-                  <FileSignature className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
-                  <h2 className="text-xl font-black text-white mb-2 uppercase italic tracking-tighter">Tiered Cover Letter Engine</h2>
-                  <p className="text-slate-400 mb-6 max-w-md mx-auto text-xs font-bold leading-relaxed">Generate hyper-tailored cover letters using Llama 3.3 with local Markdown formatting fallbacks.</p>
-
-                  <div className="w-full max-w-2xl space-y-4">
-                     <textarea
-                       placeholder="Enter Job Details (Role, Company, Description)..."
-                       className="w-full h-32 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-slate-300 focus:border-indigo-500 outline-none"
-                     />
-                     <button className="bg-indigo-600 px-8 py-3 rounded-2xl font-black text-white hover:scale-105 transition-transform uppercase text-xs tracking-widest shadow-lg shadow-indigo-600/20">
-                        Create New Draft
-                     </button>
-                  </div>
-               </div>
+               <CoverLetterBuilder resumes={resumes} jobs={jobs} profile={profile} />
              )}
 
-             {activeTab === "prep" && (
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8">
-                   <div className="flex items-center gap-4 mb-8">
-                      <Brain className="w-8 h-8 text-purple-400" />
-                      <h2 className="text-xl font-black text-white">Interview Prep Studio</h2>
-                   </div>
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-indigo-500/50 transition-all cursor-pointer">
-                         <h3 className="font-bold text-indigo-400 mb-2 uppercase tracking-widest text-[10px]">Behavioral</h3>
-                         <p className="text-sm text-white font-bold mb-2">STAR Method Master</p>
-                         <p className="text-xs text-slate-400">Practice common culture-fit questions with AI feedback.</p>
-                      </div>
-                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-emerald-500/50 transition-all cursor-pointer">
-                         <h3 className="font-bold text-emerald-400 mb-2 uppercase tracking-widest text-[10px]">Technical</h3>
-                         <p className="text-sm text-white font-bold mb-2">System Design & DSA</p>
-                         <p className="text-xs text-slate-400">Deep dives into stack-specific concepts and coding challenges.</p>
-                      </div>
-                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-amber-500/50 transition-all cursor-pointer group">
-                         <h3 className="font-bold text-amber-400 mb-2 uppercase tracking-widest text-[10px]">Interactive</h3>
-                         <p className="text-sm text-white font-bold mb-2">Voice Mock Studio</p>
-                         <p className="text-xs text-slate-400 italic opacity-50">Local Speech-to-Text integration coming soon.</p>
-                      </div>
-                   </div>
-                </div>
-             )}
+             {activeTab === "prep" && <InterviewPrepStudio resumes={resumes} jobs={jobs} />}
 
-             {activeTab === "recruiters" && <RecruiterFinder />}
+             {activeTab === "recruiters" && (
+               <RecruiterFinder resumeText={resumeText} profile={profile} resumes={resumes} />
+             )}
 
              {activeTab === "kanban" && (
                 <KanbanBoard

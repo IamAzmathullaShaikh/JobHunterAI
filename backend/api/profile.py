@@ -9,6 +9,7 @@ from sqlalchemy import select
 from core.ai.resume_parser import ResumeParser
 from core.database.models import UserProfile
 from core.dependencies import get_job_service
+from core.services.job_service import JobService
 from core.schemas.api_payloads import ResumeParseRequest
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/api/profile", tags=["profile"])
 
 
 @router.get("")
-async def get_profile(job_service: any = Depends(get_job_service)):
+async def get_profile(job_service: JobService = Depends(get_job_service)):
     db = job_service.session
     stmt = select(UserProfile).order_by(UserProfile.updated_at.desc()).limit(1)
     result = await db.execute(stmt)
@@ -29,7 +30,7 @@ async def get_profile(job_service: any = Depends(get_job_service)):
 
 @router.post("/parse")
 async def parse_resume(
-    request: ResumeParseRequest, job_service: any = Depends(get_job_service)
+    request: ResumeParseRequest, job_service: JobService = Depends(get_job_service)
 ):
     db = job_service.session
     text = request.text

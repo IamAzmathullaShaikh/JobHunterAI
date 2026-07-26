@@ -182,7 +182,7 @@ export default function AnalysisMatrix({
               <div className="border-t border-slate-700/60 pt-5 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
                   <div className="bg-slate-900 rounded-xl p-5 border border-slate-850 flex flex-col items-center justify-center text-center">
-                    <span className="text-xs font-semibold text-slate-400">Match Fit Score</span>
+                    <span className="text-xs font-semibold text-slate-400">Overall ATS Score</span>
                     <div className="text-4xl font-bold font-mono text-emerald-400 mt-2">
                       {Math.round(activeJob.ai_analysis.match_score)}%
                     </div>
@@ -194,14 +194,21 @@ export default function AnalysisMatrix({
                     </div>
                   </div>
 
-                  <div className="md:col-span-3 bg-slate-900/40 rounded-xl p-5 border border-slate-800">
+                  <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                     <ScoreBadge label="Readability" score={activeJob.ai_analysis.readability_score} color="indigo" />
+                     <ScoreBadge label="Action Verbs" score={activeJob.ai_analysis.action_verb_score} color="emerald" />
+                     <ScoreBadge label="Formatting" score={activeJob.ai_analysis.formatting_score} color="amber" />
+                     <ScoreBadge label="Impact" score={activeJob.ai_analysis.quantification_score} color="purple" />
+                  </div>
+                </div>
+
+                <div className="bg-slate-900/40 rounded-xl p-5 border border-slate-800">
                     <span className="text-xs font-semibold text-slate-400 block mb-1">
                       Summary:
                     </span>
                     <p className="text-sm text-slate-300 leading-relaxed font-sans">
                       {activeJob.ai_analysis.fit_summary}
                     </p>
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -285,6 +292,21 @@ export default function AnalysisMatrix({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ScoreBadge({ label, score, color }: { label: string, score: number, color: string }) {
+  const colors: any = {
+    indigo: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+    emerald: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+    amber: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    purple: "text-purple-400 bg-purple-500/10 border-purple-500/20",
+  };
+  return (
+    <div className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center ${colors[color] || colors.indigo}`}>
+       <span className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-70">{label}</span>
+       <span className="text-lg font-black font-mono">{Math.round(score)}%</span>
     </div>
   );
 }

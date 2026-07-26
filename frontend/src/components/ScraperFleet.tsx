@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Terminal, Shield, Play, Loader2, Database, AlertCircle } from "lucide-react";
+import { Terminal, Shield, Play, Loader2, Database, AlertCircle, Save } from "lucide-react";
 import { CandidateProfile, JobListing } from "../types.ts";
 
 interface ScraperFleetProps {
@@ -17,8 +17,26 @@ export default function ScraperFleet({
   const [location, setLocation] = useState("Andhra Pradesh, India");
   const [jobType, setJobType] = useState("Full-Time");
   const [isRunning, setIsRunning] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const saveCurrentSearch = async () => {
+    setIsSaving(true);
+    try {
+      await fetch("/api/jobs/saved-searches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${searchQuery} in ${location}`,
+          query: searchQuery,
+          location,
+          job_type: jobType
+        })
+      });
+    } catch (err) { console.error(err); }
+    finally { setIsSaving(false); }
+  };
 
   // Set default search query when candidate profile is uploaded
   useEffect(() => {
@@ -66,11 +84,11 @@ Highlights: ${profile.experience_highlights.join("; ")}`;
       }
 
       // Hit API
-      const response = await fetch("/api/scrape", {
+      const response = await fetch("/api/jobs/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          search_query: searchQuery,
+          query: searchQuery,
           location,
           job_type: jobType,
           candidate_context,
@@ -192,16 +210,16 @@ Highlights: ${profile.experience_highlights.join("; ")}`;
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 flex gap-3">
           <button
             onClick={runIngestionPipeline}
             disabled={isRunning}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed text-slate-100 font-medium text-sm py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+            className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed text-slate-100 font-medium text-sm py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
           >
             {isRunning ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Searching for jobs...
+                Searching...
               </>
             ) : (
               <>
@@ -209,6 +227,14 @@ Highlights: ${profile.experience_highlights.join("; ")}`;
                 Find Jobs Now
               </>
             )}
+          </button>
+          <button
+            onClick={saveCurrentSearch}
+            disabled={isSaving || isRunning}
+            className="bg-slate-700 hover:bg-slate-600 p-2.5 rounded-lg text-slate-300"
+            title="Save this search"
+          >
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           </button>
         </div>
       </div>

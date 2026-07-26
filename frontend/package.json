@@ -15,8 +15,10 @@
   },
   "dependencies": {
     "@google/genai": "latest",
+    "@types/lodash": "^4.17.24",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "lodash": "^4.18.1",
     "lucide-react": "^0.400.0",
     "motion": "^11.11.0",
     "react": "^18.3.1",

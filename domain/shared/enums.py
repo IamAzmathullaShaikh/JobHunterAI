@@ -2,21 +2,12 @@ from enum import Enum
 
 
 class ApplicationStatus(str, Enum):
-    DRAFT = "draft"
-    READY = "ready"
-    SUBMITTED = "submitted"
-    SCREENING = "screening"
-    INTERVIEWING = "interviewing"
-    TECHNICAL_INTERVIEW = "technical_interview"
-    HR_INTERVIEW = "hr_interview"
-    OFFER_RECEIVED = "offer_received"
-    OFFER_ACCEPTED = "offer_accepted"
-    OFFER_REJECTED = "offer_rejected"
-    JOINED = "joined"
-    REJECTED = "rejected"
-    WITHDRAWN = "withdrawn"
-    EXPIRED = "expired"
-    CANCELLED = "cancelled"
+    WISHLIST = "Wishlist"
+    APPLIED = "Applied"
+    INTERVIEWING = "Interviewing"
+    OFFERED = "Offered"
+    REJECTED = "Rejected"
+    ARCHIVED = "Archived"
 
 
 class InterviewStatus(str, Enum):

@@ -6,11 +6,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ApplicationStatusDTO(str, Enum):
-    IDENTIFIED = "Identified"
-    AI_READY = "AI Ready"
+    WISHLIST = "Wishlist"
     APPLIED = "Applied"
     INTERVIEWING = "Interviewing"
-    OFFER = "Offer"
+    OFFERED = "Offered"
     REJECTED = "Rejected"
     ARCHIVED = "Archived"
 
@@ -44,7 +43,7 @@ class AIAnalysisDTO(AIAnalysisCreate):
 
 class JobApplicationCreate(BaseModel):
     job_id: int
-    status: ApplicationStatusDTO = ApplicationStatusDTO.IDENTIFIED
+    status: ApplicationStatusDTO = ApplicationStatusDTO.WISHLIST
     notes: Optional[str] = None
 
 

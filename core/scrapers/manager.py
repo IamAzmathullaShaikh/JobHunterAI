@@ -41,8 +41,15 @@ class ScraperManager:
     ) -> tuple[str, List[JobListingCreate]]:
         logger.info(f"Running scraper: {scraper.name}")
         try:
-            listings = await scraper.scrape(search_query, location, limit, job_type)
+            # Wrap scraper in a wait_for to ensure it doesn't block forever
+            listings = await asyncio.wait_for(
+                scraper.scrape(search_query, location, limit, job_type),
+                timeout=60.0 # 60s max per scraper
+            )
             return scraper.name, listings
+        except asyncio.TimeoutError:
+            logger.error(f"{scraper.name} timed out after 60s.")
+            return scraper.name, []
         except Exception as e:
             logger.error(f"{scraper.name} failed during execution: {str(e)}")
             return scraper.name, []

@@ -23,9 +23,6 @@ class SubmitApplicationUseCase(ApplicationUseCase[str, str]):
             return Result.not_found("Application not found.")
 
         # 1. Domain logic
-        if app.status == ApplicationStatus.DRAFT:
-            app.update_status(ApplicationStatus.READY)
-
         app.submit()
 
         # 2. Persist

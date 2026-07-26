@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,6 +9,7 @@ from core.analytics_engine import AnalyticsEngine
 from core.database.connection import get_db_session
 from core.database.models import ApplicationStatus, JobApplication
 from core.dependencies import get_job_service
+from core.services.job_service import JobService
 from core.schemas.api_payloads import (CreateApplicationRequest,
                                        UpdateApplicationRequest)
 
@@ -45,9 +47,7 @@ async def update_status(
     stmt = (
         update(JobApplication)
         .where(JobApplication.id == app_id)
-        .values(
-            status=request.status, date_updated=__import__("datetime").datetime.utcnow()
-        )
+        .values(status=request.status, date_updated=datetime.now(timezone.utc))
     )
     await db.execute(stmt)
     await db.commit()
@@ -66,7 +66,7 @@ async def update_application_card(
         .values(
             status=request.status,
             notes=request.notes,
-            date_updated=__import__("datetime").datetime.utcnow(),
+            date_updated=datetime.now(timezone.utc),
         )
     )
     await db.execute(stmt)
@@ -86,6 +86,12 @@ async def delete_application(
 
 
 @router.get("/analytics")
-async def get_analytics(job_service: JobService = Depends(get_job_service)):
+async def get_analytics(
+    days: int = 30,
+    job_service: JobService = Depends(get_job_service)
+):
+    """
+    Returns unified Career Intelligence data.
+    """
     engine = AnalyticsEngine(job_service.session)
-    return await engine.get_career_metrics()
+    return await engine.get_comprehensive_analytics(days=days)

@@ -29,7 +29,7 @@ class Application:
     id: ApplicationId
     candidate_id: CandidateId
     job_id: JobId
-    _status: ApplicationStatus = ApplicationStatus.DRAFT
+    _status: ApplicationStatus = ApplicationStatus.WISHLIST
     _timeline: ApplicationTimeline = field(default_factory=ApplicationTimeline)
     _interviews: List[Interview] = field(default_factory=list)
     _history: List[WorkflowHistory] = field(default_factory=list)
@@ -40,58 +40,31 @@ class Application:
 
     # --- Full Lifecycle State Machine (Class Level) ---
     _VALID_TRANSITIONS = {
-        ApplicationStatus.DRAFT: {ApplicationStatus.READY, ApplicationStatus.WITHDRAWN},
-        ApplicationStatus.READY: {
-            ApplicationStatus.SUBMITTED,
-            ApplicationStatus.WITHDRAWN,
-        },
-        ApplicationStatus.SUBMITTED: {
-            ApplicationStatus.SCREENING,
-            ApplicationStatus.REJECTED,
-            ApplicationStatus.WITHDRAWN,
-        },
-        ApplicationStatus.SCREENING: {
+        ApplicationStatus.WISHLIST: {ApplicationStatus.APPLIED, ApplicationStatus.ARCHIVED},
+        ApplicationStatus.APPLIED: {
             ApplicationStatus.INTERVIEWING,
             ApplicationStatus.REJECTED,
-            ApplicationStatus.WITHDRAWN,
+            ApplicationStatus.ARCHIVED,
         },
         ApplicationStatus.INTERVIEWING: {
-            ApplicationStatus.TECHNICAL_INTERVIEW,
-            ApplicationStatus.HR_INTERVIEW,
-            ApplicationStatus.OFFER_RECEIVED,
+            ApplicationStatus.OFFERED,
             ApplicationStatus.REJECTED,
-            ApplicationStatus.WITHDRAWN,
+            ApplicationStatus.ARCHIVED,
         },
-        ApplicationStatus.TECHNICAL_INTERVIEW: {
-            ApplicationStatus.HR_INTERVIEW,
-            ApplicationStatus.OFFER_RECEIVED,
-            ApplicationStatus.REJECTED,
-            ApplicationStatus.WITHDRAWN,
+        ApplicationStatus.OFFERED: {
+            ApplicationStatus.ARCHIVED,
         },
-        ApplicationStatus.HR_INTERVIEW: {
-            ApplicationStatus.OFFER_RECEIVED,
-            ApplicationStatus.REJECTED,
-            ApplicationStatus.WITHDRAWN,
-        },
-        ApplicationStatus.OFFER_RECEIVED: {
-            ApplicationStatus.OFFER_ACCEPTED,
-            ApplicationStatus.OFFER_REJECTED,
-            ApplicationStatus.WITHDRAWN,
-        },
-        ApplicationStatus.OFFER_ACCEPTED: {
-            ApplicationStatus.JOINED,
-            ApplicationStatus.WITHDRAWN,
-        },
-        ApplicationStatus.JOINED: set(),  # Terminal Success
-        ApplicationStatus.REJECTED: set(),  # Terminal Failure
-        ApplicationStatus.WITHDRAWN: set(),  # Terminal Cancellation
-        ApplicationStatus.EXPIRED: set(),  # Terminal
-        ApplicationStatus.CANCELLED: set(),  # Terminal
+        ApplicationStatus.REJECTED: {ApplicationStatus.ARCHIVED},
+        ApplicationStatus.ARCHIVED: set(),
     }
 
     @property
     def status(self) -> ApplicationStatus:
         return self._status
+
+    @property
+    def timeline(self) -> ApplicationTimeline:
+        return self._timeline
 
     @property
     def interviews(self) -> Tuple[Interview, ...]:
@@ -131,24 +104,24 @@ class Application:
         self._status = new_status
         self._timeline.add_event(new_status.value, notes)
 
-        if new_status == ApplicationStatus.SUBMITTED and not self._applied_at:
+        if new_status == ApplicationStatus.APPLIED and not self._applied_at:
             self._applied_at = datetime.now()
 
     def submit(self):
         self.update_status(
-            ApplicationStatus.SUBMITTED, reason="Candidate submitted application"
+            ApplicationStatus.APPLIED, reason="Candidate submitted application"
         )
 
     def reject(self, reason: str):
         self.update_status(ApplicationStatus.REJECTED, reason=reason)
 
     def withdraw(self, reason: str):
-        self.update_status(ApplicationStatus.WITHDRAWN, reason=reason)
+        self.update_status(ApplicationStatus.ARCHIVED, reason=reason)
 
     def schedule_interview(
         self, interview_id: InterviewId, scheduled_at: datetime
     ) -> Interview:
-        if self._status in [ApplicationStatus.REJECTED, ApplicationStatus.WITHDRAWN]:
+        if self._status in [ApplicationStatus.REJECTED, ApplicationStatus.ARCHIVED]:
             raise BusinessRuleViolationError(
                 "Cannot schedule interview for a terminal application."
             )
@@ -165,13 +138,14 @@ class Application:
 
     def receive_offer(self, offer: Offer):
         self._offer = offer
-        self.update_status(ApplicationStatus.OFFER_RECEIVED)
+        self.update_status(ApplicationStatus.OFFERED)
 
     def accept_offer(self):
         if not self._offer:
             raise BusinessRuleViolationError("No offer to accept.")
         self._offer.accept()
-        self.update_status(ApplicationStatus.OFFER_ACCEPTED)
+        # For now, move to ARCHIVED or keep as OFFERED. Let's keep as OFFERED for visibility.
+        # Or add a JOINED if really needed. But let's stay with the 6 baseline statuses.
 
     @property
     def days_in_current_stage(self) -> int:

@@ -15,10 +15,40 @@ except ImportError:
 from core.config.settings import settings
 
 
+class Capability:
+    REASONING = "reasoning"
+    FAST = "fast"
+    VISION = "vision"
+
+
 class LLMClient(ABC):
     @abstractmethod
-    async def chat_completion(self, model: str, messages: list) -> Any:
+    async def chat_completion(self, model: str = None, messages: list = []) -> Any:
         pass
+
+    def get_model_for_capability(self, capability: str) -> str:
+        """Maps system capabilities to provider-specific models."""
+        mapping = {
+            "groq": {
+                Capability.REASONING: settings.GROQ_MODEL,
+                Capability.FAST: "llama-3.1-8b-instant",
+            },
+            "gemini": {
+                Capability.REASONING: settings.GEMINI_MODEL,
+                Capability.FAST: "gemini-1.5-flash-8b",
+            },
+            "openrouter": {
+                Capability.REASONING: settings.OPENROUTER_MODEL,
+                Capability.FAST: settings.OPENROUTER_MODEL,
+            },
+            "ollama": {
+                Capability.REASONING: settings.OLLAMA_MODEL,
+                Capability.FAST: settings.OLLAMA_MODEL,
+            }
+        }
+        provider = settings.AI_PROVIDER.lower()
+        provider_map = mapping.get(provider, mapping["groq"])
+        return provider_map.get(capability, list(provider_map.values())[0])
 
 
 class GroqLLMClient(LLMClient):
@@ -31,13 +61,14 @@ class GroqLLMClient(LLMClient):
         self.client = AsyncGroq(api_key=self.api_key)
         self.default_model = settings.GROQ_MODEL
 
-    async def chat_completion(self, model: str, messages: list) -> Any:
+    async def chat_completion(self, model: str = None, messages: list = []) -> Any:
         if not self.client:
             raise ValueError(
                 "Groq client not available (check API key or installation)"
             )
+        target_model = model or self.default_model
         response = await self.client.chat.completions.create(
-            model=model or self.default_model, messages=messages
+            model=target_model, messages=messages
         )
         return response
 
@@ -55,11 +86,12 @@ class OpenRouterLLMClient(LLMClient):
         )
         self.default_model = settings.OPENROUTER_MODEL
 
-    async def chat_completion(self, model: str, messages: list) -> Any:
+    async def chat_completion(self, model: str = None, messages: list = []) -> Any:
         if not self.client:
             raise ValueError("OpenRouter client not available")
+        target_model = model or self.default_model
         response = await self.client.chat.completions.create(
-            model=model or self.default_model, messages=messages
+            model=target_model, messages=messages
         )
         return response
 
@@ -76,11 +108,12 @@ class OllamaLLMClient(LLMClient):
         )
         self.default_model = settings.OLLAMA_MODEL
 
-    async def chat_completion(self, model: str, messages: list) -> Any:
+    async def chat_completion(self, model: str = None, messages: list = []) -> Any:
         if not self.client:
             raise ValueError("Ollama client not available")
+        target_model = model or self.default_model
         response = await self.client.chat.completions.create(
-            model=model or self.default_model, messages=messages
+            model=target_model, messages=messages
         )
         return response
 
@@ -99,11 +132,12 @@ class GeminiLLMClient(LLMClient):
         )
         self.default_model = settings.GEMINI_MODEL
 
-    async def chat_completion(self, model: str, messages: list) -> Any:
+    async def chat_completion(self, model: str = None, messages: list = []) -> Any:
         if not self.client:
             raise ValueError("Gemini client not available")
+        target_model = model or self.default_model
         response = await self.client.chat.completions.create(
-            model=model or self.default_model, messages=messages
+            model=target_model, messages=messages
         )
         return response
 

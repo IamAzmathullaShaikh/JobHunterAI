@@ -30,29 +30,37 @@ def get_local_model():
 
 # --- Cloud Primary ---
 async def cloud_analyze_fit(job_description: str, user_profile: str) -> Dict[str, Any]:
-    """Uses Groq/Gemini to compute detailed match alignment."""
+    """Uses Groq/Gemini to compute comprehensive ATS diagnostic report."""
     client = get_llm_client()
 
     prompt = f"""
-    Evaluate the fit compatibility between the candidate profile and the job description.
+    Evaluate the candidate profile against the job description for ATS compatibility.
     Candidate Profile: {user_profile[:4000]}
     Job Description: {job_description[:4000]}
 
     Return strict JSON:
     {{
         "match_score": 85.5,
-        "fit_summary": "Concise summary...",
-        "keywords_matched": ["Skill 1", "Skill 2"],
-        "keywords_missing": ["Skill 3"]
+        "readability_score": 90,
+        "action_verb_score": 75,
+        "formatting_score": 80,
+        "quantification_score": 60,
+        "fit_summary": "...",
+        "keywords_matched": ["..."],
+        "keywords_missing": ["..."],
+        "detailed_recommendations": {{
+            "critical": ["..."],
+            "high": ["..."],
+            "medium": ["..."]
+        }}
     }}
     """
 
     response = await client.chat_completion(
-        model=None,
         messages=[
             {
                 "role": "system",
-                "content": "You are an expert technical recruiter analyzing resume-to-job alignment.",
+                "content": "You are an elite ATS optimization engine and technical recruiter.",
             },
             {"role": "user", "content": prompt},
         ],
@@ -67,7 +75,19 @@ async def cloud_analyze_fit(job_description: str, user_profile: str) -> Dict[str
     if match:
         return {"source": "cloud", "data": json.loads(match.group())}
 
-    raise ValueError("Cloud failed to return valid JSON for alignment")
+    raise ValueError("Cloud failed to return valid JSON for diagnostic")
+
+
+async def cloud_optimize_bullet(bullet: str, jd: str) -> Dict[str, Any]:
+    """Provides optimized alternatives for a resume bullet point."""
+    client = get_llm_client()
+    prompt = f"Optimize this resume bullet for this JD. Provide 3 versions: 1. Action-oriented, 2. Quantified, 3. Keyword-dense. \nBullet: {bullet}\nJD: {jd[:1000]}"
+
+    response = await client.chat_completion(
+        messages=[{"role": "user", "content": prompt}]
+    )
+    # Simple extraction for now, should be structured JSON in production
+    return {"success": True, "data": [response.choices[0].message.content]}
 
 
 cloud_analyze_fit.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
@@ -149,6 +169,9 @@ class JobMatcher:
         return await route(
             cloud_analyze_fit, local_analyze_fit, job_description, user_profile
         )
+
+    async def optimize_bullet(self, bullet: str, jd: str) -> Dict[str, Any]:
+        return await cloud_optimize_bullet(bullet, jd)
 
     async def evaluate_match(
         self, job_description: str, user_profile: str

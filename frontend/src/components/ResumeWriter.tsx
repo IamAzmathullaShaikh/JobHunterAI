@@ -12,8 +12,12 @@ export default function ResumeWriter({ resumeText }: { resumeText: string }) {
     if (!resumeText || !jobDescription) return;
     setIsTailoring(true);
     try {
-      // Split resume text into bullets (simple heuristic)
-      const bullets = resumeText.split("\n").filter(l => l.trim().startsWith("-") || l.trim().startsWith("•"));
+      // Improved bullet-splitting heuristic
+      const bullets = resumeText
+        .split("\n")
+        .map(line => line.trim())
+        .filter(line => line.length > 10) // Filter out noise
+        .map(line => line.replace(/^[-•*]\s*/, "")); // Remove existing markers for cleaner AI input
 
       const response = await fetch("/api/resumes/tailor", {
         method: "POST",

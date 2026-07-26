@@ -43,6 +43,6 @@ async def test_submit_application_orchestration():
 
     # 3. Assert
     assert res.is_success
-    assert app.status == ApplicationStatus.SUBMITTED
+    assert app.status == ApplicationStatus.APPLIED
     assert len(app.history) > 0
     mock_repo.save.assert_called_once()

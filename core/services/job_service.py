@@ -9,6 +9,8 @@ from sqlalchemy.orm import selectinload
 from core.ai.matcher import JobMatcher
 from core.database.models import (AIAnalysis, ApplicationStatus,
                                   JobApplication, JobListing)
+from core.deduplication_engine import deduplication_engine
+from core.enrichment_engine import enrichment_engine
 from core.schemas.job_listing import JobListingCreate
 from core.scrapers.manager import ScraperManager
 
@@ -46,7 +48,7 @@ class JobService:
         excluded_statuses = {
             ApplicationStatus.APPLIED,
             ApplicationStatus.INTERVIEWING,
-            ApplicationStatus.OFFER,
+            ApplicationStatus.OFFERED,
             ApplicationStatus.REJECTED,
             ApplicationStatus.ARCHIVED,
         }
@@ -92,51 +94,42 @@ class JobService:
             job_type=job_type,
         )
 
-        seen_batch_ids: Set[str] = set()
-        seen_batch_tuples: Set[Tuple[str, str]] = set()
-        unique_new_models: List[JobListing] = []
+        # 1. Deduplication
+        # Get all existing jobs for deduplication
+        existing_stmt = select(JobListing)
+        existing_res = await self.session.execute(existing_stmt)
+        all_existing = [j.__dict__ for j in existing_res.scalars().all()]
 
-        for item in raw_listings:
-            # Data Cleanup & Validation
-            raw_id = item.job_id_raw
-            title = (item.title or "Unknown Role").strip()
-            company = (item.company_name or "Unknown Company").strip()
+        unique_raw = deduplication_engine.deduplicate_batch(
+            [item.model_dump() for item in raw_listings],
+            all_existing
+        )
 
-            clean_title = self._normalize_str(title)
-            clean_company = self._normalize_str(company)
-            tuple_key = (clean_title, clean_company)
+        # 2. Parallel Enrichment
+        logger.info(f"Enriching {len(unique_raw)} unique listings...")
 
-            # 1. Skip if already in database or marked as applied
-            if raw_id in existing_ids or tuple_key in existing_title_company:
-                logger.debug(
-                    f"Skipping existing/applied job: '{item.title}' at '{item.company_name}'"
-                )
-                continue
-
-            # 2. Skip duplicate entries within the current scrape batch
-            if raw_id in seen_batch_ids or tuple_key in seen_batch_tuples:
-                logger.debug(
-                    f"Skipping in-batch duplicate: '{item.title}' at '{item.company_name}'"
-                )
-                continue
-
-            # Track unique entry
-            seen_batch_ids.add(raw_id)
-            seen_batch_tuples.add(tuple_key)
-
-            db_model = JobListing(
-                job_id_raw=item.job_id_raw,
-                title=item.title,
-                company_name=item.company_name,
-                location=item.location,
-                work_place_type=item.work_place_type,
-                job_type=item.job_type,
-                source=item.source,
-                url=item.url,
-                description_raw=item.description_raw,
-                description_clean=item.description_clean,
+        async def enrich_and_map(item_dict: dict):
+            enriched_data = await enrichment_engine.enrich_job(item_dict.get("description_raw", ""))
+            return JobListing(
+                job_id_raw=item_dict.get("job_id_raw"),
+                title=item_dict.get("title"),
+                company_name=item_dict.get("company_name"),
+                location=item_dict.get("location"),
+                work_place_type=enriched_data.get("work_model") or item_dict.get("work_place_type"),
+                job_type=item_dict.get("job_type"),
+                source=item_dict.get("source"),
+                url=item_dict.get("url"),
+                description_raw=item_dict.get("description_raw"),
+                description_clean=item_dict.get("description_clean"),
+                # New fields
+                required_skills=enriched_data.get("required_skills"),
+                seniority=enriched_data.get("seniority"),
+                technologies=enriched_data.get("technologies"),
+                benefits=enriched_data.get("benefits"),
             )
-            unique_new_models.append(db_model)
+
+        enrichment_tasks = [enrich_and_map(item) for item in unique_raw]
+        unique_new_models = await asyncio.gather(*enrichment_tasks)
 
         if unique_new_models:
             self.session.add_all(unique_new_models)
@@ -181,7 +174,7 @@ class JobService:
         excluded_statuses = {
             ApplicationStatus.APPLIED,
             ApplicationStatus.INTERVIEWING,
-            ApplicationStatus.OFFER,
+            ApplicationStatus.OFFERED,
             ApplicationStatus.REJECTED,
             ApplicationStatus.ARCHIVED,
         }
@@ -243,8 +236,8 @@ class JobService:
                     job_id=job.id,
                     match_score=analysis.match_score,
                     fit_summary=analysis.fit_summary,
-                    keywords_matched=",".join(analysis.keywords_matched),
-                    keywords_missing=",".join(analysis.keywords_missing),
+                    keywords_matched=analysis.keywords_matched,
+                    keywords_missing=analysis.keywords_missing,
                 )
                 self.session.add(ai_record)
                 analyzed_count += 1

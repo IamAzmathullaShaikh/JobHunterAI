@@ -18,7 +18,7 @@ def test_application_rejected_terminal():
 
 def test_application_valid_flow():
     app = Application(id=ApplicationId(), candidate_id=CandidateId(), job_id=JobId())
-    assert app.status == ApplicationStatus.IDENTIFIED
+    assert app.status == ApplicationStatus.WISHLIST
 
     app.update_status(ApplicationStatus.APPLIED)
     assert app.status == ApplicationStatus.APPLIED
@@ -29,6 +29,6 @@ def test_application_valid_flow():
 
 def test_application_invalid_transition():
     app = Application(id=ApplicationId(), candidate_id=CandidateId(), job_id=JobId())
-    # Identified -> Interviewing is not allowed directly
+    # Wishlist -> Interviewing is not allowed directly
     with pytest.raises(BusinessRuleViolationError):
         app.update_status(ApplicationStatus.INTERVIEWING)
