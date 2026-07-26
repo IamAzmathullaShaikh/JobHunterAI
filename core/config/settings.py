@@ -1,8 +1,9 @@
 import os
+import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, Union
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Get the path to the .env file in the project root
@@ -11,19 +12,41 @@ env_path = project_root / ".env"
 
 
 class Settings(BaseSettings):
+    """
+    Centralized configuration management for JobHunterAI.
+    Loads settings from environment variables and .env file.
+    """
     model_config = SettingsConfigDict(
-        env_file=str(env_path), env_file_encoding="utf-8", extra="ignore"
+        env_file=str(env_path),
+        env_file_encoding="utf-8",
+        extra="ignore"
     )
 
-    # --- Core System Settings ---
-    DEBUG: bool = True
-    PORT: int = 8000
-    NODE_ENV: str = "development"
-    LOG_DIR: str = "logs"
-    DATABASE_URL: str = "sqlite+aiosqlite:///jobhunter.db"
+    # --- Authoritative Environment State ---
+    ENVIRONMENT: str = Field(
+        default="development",
+        validation_alias=AliasChoices("ENVIRONMENT", "NODE_ENV", "APP_ENV"),
+        description="Deployment environment (development, production, testing)"
+    )
+    VERSION: str = "1.0.0"
+    DEBUG: bool = Field(default=True, description="Enable debug logging and Swagger UI")
+    PORT: int = Field(default=8000, description="Server port")
+    LOG_DIR: str = Field(default="logs", description="Directory for system logs")
+    DATABASE_URL: str = Field(
+        default="sqlite+aiosqlite:///jobhunter.db",
+        description="Database connection string (Postgres recommended for production)"
+    )
 
     # --- AI Provider Configuration ---
-    AI_PROVIDER: str = "groq"  # groq, gemini, openai, openrouter, ollama
+    AI_PROVIDER: str = Field(
+        default="groq",
+        description="Primary AI provider (groq, gemini, openai, openrouter, ollama, auto)"
+    )
+
+    # Dynamic Routing Configuration (Used when AI_PROVIDER='auto')
+    DEFAULT_AI_PROVIDER: str = Field(default="groq")
+    FALLBACK_AI_PROVIDER: str = Field(default="gemini")
+    LOCAL_AI_PROVIDER: str = Field(default="ollama")
 
     GROQ_API_KEY: Optional[str] = None
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
@@ -43,8 +66,40 @@ class Settings(BaseSettings):
     # --- Scraper Configuration ---
     APIFY_API_TOKEN: Optional[str] = None
     APIFY_ACTOR_ID: str = "apify/google-jobs-scraper"
-
     HUNTER_API_KEY: Optional[str] = None
+
+    # --- Security & CORS ---
+    CORS_ORIGINS: Union[List[str], str] = Field(
+        default=["*"],
+        description="Allowed CORS origins. Supports comma-separated string, JSON array, or list."
+    )
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> List[str]:
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    return json.loads(v)
+                except json.JSONDecodeError:
+                    return [v]
+            return [i.strip() for i in v.split(",") if i.strip()]
+        return v
+
+    @model_validator(mode="after")
+    def validate_security_and_ai(self) -> "Settings":
+        # 1. CORS Production Check
+        if self.is_production:
+            if "*" in self.CORS_ORIGINS:
+                raise ValueError("CORS_ORIGINS cannot contain '*' in production environment.")
+
+        # 2. AI Provider Validation
+        allowed_providers = ["groq", "gemini", "openai", "openrouter", "ollama", "auto"]
+        if self.AI_PROVIDER.lower() not in allowed_providers:
+            raise ValueError(f"AI_PROVIDER must be one of {allowed_providers}")
+
+        return self
 
     # --- Matching & ATS Intelligence ---
     MATCHING_CONFIG_VERSION: str = "1.0.0"
@@ -56,54 +111,23 @@ class Settings(BaseSettings):
         "location": 0.10,
         "salary": 0.05,
     }
-    MIN_KEYWORD_SCORE: float = 0.4
-    MIN_SKILL_MATCH: float = 0.5
-    ATS_THRESHOLDS: Dict[str, float] = {"completeness": 0.6, "quantification": 0.4}
-
-    # Skill Aliases for deterministic resolution
-    SKILL_ALIASES: Dict[str, str] = {
-        "js": "javascript",
-        "ts": "typescript",
-        "node": "node.js",
-        "py": "python",
-        "ml": "machine learning",
-        "ai": "artificial intelligence",
-        "aws": "amazon web services",
-        "gcp": "google cloud platform",
-    }
 
     @field_validator("MATCHING_WEIGHTS")
+    @classmethod
     def validate_weights(cls, v):
         total = sum(v.values())
         if not (0.99 <= total <= 1.01 or 99 <= total <= 101):
-            raise ValueError(
-                f"MATCHING_WEIGHTS must sum to 1.0 or 100 (current: {total})"
-            )
+            raise ValueError(f"MATCHING_WEIGHTS must sum to 1.0 or 100 (current: {total})")
         return v
 
-    # --- Security ---
-    CORS_ORIGINS: List[str] = ["*"]
-
-    @field_validator("CORS_ORIGINS", mode="before")
-    def validate_cors(cls, v):
-        node_env = os.getenv("NODE_ENV", "development").lower()
-        if node_env == "production":
-            if isinstance(v, list) and "*" in v:
-                raise ValueError("CORS_ORIGINS cannot contain '*' in production")
-            if isinstance(v, str) and v == "*":
-                raise ValueError("CORS_ORIGINS cannot be '*' in production")
-        return v
-
-    @field_validator("AI_PROVIDER")
-    def validate_provider(cls, v):
-        allowed = ["groq", "gemini", "openai", "openrouter", "ollama"]
-        if v.lower() not in allowed:
-            raise ValueError(f"AI_PROVIDER must be one of {allowed}")
-        return v.lower()
-
+    # --- Properties ---
     @property
     def is_production(self) -> bool:
-        return self.NODE_ENV.lower() == "production"
+        return self.ENVIRONMENT.lower() == "production"
+
+    @property
+    def is_development(self) -> bool:
+        return self.ENVIRONMENT.lower() == "development"
 
 
 # Singleton instance

@@ -134,9 +134,18 @@ app.include_router(jobs.router)
 
 @app.get("/api/health")
 async def health_check(db: AsyncSession = Depends(get_db_session)):
+    import psutil
+    import time
+
+    process = psutil.Process(os.getpid())
+
     health = {
         "status": "healthy",
         "service": "JobHunterAI Backend",
+        "version": settings.VERSION,
+        "environment": settings.ENVIRONMENT,
+        "uptime_seconds": int(time.time() - process.create_time()),
+        "memory_usage_mb": round(process.memory_info().rss / 1024 / 1024, 2),
         "database": "connected",
         "ai_providers": {
             "groq": bool(settings.GROQ_API_KEY),

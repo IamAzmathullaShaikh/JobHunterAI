@@ -1,6 +1,7 @@
 import os
+import logging
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, List, Dict, Optional
 
 try:
     from groq import AsyncGroq
@@ -13,6 +14,9 @@ except ImportError:
     AsyncOpenAI = None
 
 from core.config.settings import settings
+from core.ai.smart_router import route
+
+logger = logging.getLogger("jobhunterai.llm_client")
 
 
 class Capability:
@@ -28,6 +32,12 @@ class LLMClient(ABC):
 
     def get_model_for_capability(self, capability: str) -> str:
         """Maps system capabilities to provider-specific models."""
+        provider = settings.AI_PROVIDER.lower()
+
+        # If auto, use the default provider's mapping
+        if provider == "auto":
+            provider = settings.DEFAULT_AI_PROVIDER.lower()
+
         mapping = {
             "groq": {
                 Capability.REASONING: settings.GROQ_MODEL,
@@ -46,7 +56,7 @@ class LLMClient(ABC):
                 Capability.FAST: settings.OLLAMA_MODEL,
             }
         }
-        provider = settings.AI_PROVIDER.lower()
+
         provider_map = mapping.get(provider, mapping["groq"])
         return provider_map.get(capability, list(provider_map.values())[0])
 
@@ -63,9 +73,7 @@ class GroqLLMClient(LLMClient):
 
     async def chat_completion(self, model: str = None, messages: list = []) -> Any:
         if not self.client:
-            raise ValueError(
-                "Groq client not available (check API key or installation)"
-            )
+            raise ValueError("Groq client not available (check API key or installation)")
         target_model = model or self.default_model
         response = await self.client.chat.completions.create(
             model=target_model, messages=messages
@@ -125,7 +133,6 @@ class GeminiLLMClient(LLMClient):
             self.client = None
             return
 
-        # Using OpenAI compatible endpoint for Gemini
         self.client = AsyncOpenAI(
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             api_key=self.api_key,
@@ -142,10 +149,38 @@ class GeminiLLMClient(LLMClient):
         return response
 
 
-def get_llm_client(provider_override: str = None) -> LLMClient:
-    provider = provider_override or settings.AI_PROVIDER
+class SmartLLMClient(LLMClient):
+    """
+    Orchestrates multiple LLM providers with automatic fallback.
+    Used when AI_PROVIDER='auto'.
+    """
 
-    if provider == "groq":
+    async def chat_completion(self, model: str = None, messages: list = []) -> Any:
+
+        async def try_primary():
+            client = get_llm_client(settings.DEFAULT_AI_PROVIDER)
+            # Use specific model if provided, else get capability-based model for the provider
+            target_model = model or client.get_model_for_capability(Capability.REASONING)
+            return await client.chat_completion(target_model, messages)
+
+        async def try_fallback():
+            client = get_llm_client(settings.FALLBACK_AI_PROVIDER)
+            target_model = model or client.get_model_for_capability(Capability.REASONING)
+            return await client.chat_completion(target_model, messages)
+
+        # Route uses Smart Router logic for Tier 1 -> Tier 3
+        # Here we adapt it for DEFAULT -> FALLBACK
+        # The smart_router.route also handles local fallback internally if primary fails
+        return await route(try_primary, try_fallback)
+
+
+def get_llm_client(provider_override: str = None) -> LLMClient:
+    """Factory function for retrieving the configured LLM client."""
+    provider = (provider_override or settings.AI_PROVIDER).lower()
+
+    if provider == "auto":
+        return SmartLLMClient()
+    elif provider == "groq":
         return GroqLLMClient()
     elif provider == "openrouter":
         return OpenRouterLLMClient()
@@ -154,5 +189,5 @@ def get_llm_client(provider_override: str = None) -> LLMClient:
     elif provider == "gemini":
         return GeminiLLMClient()
     else:
-        # Default to Groq if provider is unknown but don't crash here
+        logger.warning(f"Unknown AI provider '{provider}'. Defaulting to Groq.")
         return GroqLLMClient()

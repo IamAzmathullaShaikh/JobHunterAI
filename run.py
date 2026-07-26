@@ -108,16 +108,16 @@ def run_local():
     # 1. Install Requirements
     print_styled("📦 Installing Python dependencies...", "info")
     subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], check=True
+        [sys.executable, "-m", "pip", "install", "-r", "backend/requirements.txt"], check=True
     )
 
     print_styled("📦 Installing Frontend dependencies...", "info")
-    subprocess.run("npm install --legacy-peer-deps", shell=True, check=True)
+    subprocess.run("npm install --prefix frontend", shell=True, check=True)
 
     # 2. Run both using concurrently
     print_styled("⚡ Starting Backend (FastAPI) and Frontend (Vite)...", "success")
     try:
-        subprocess.run("npm run dev:all", shell=True)
+        subprocess.run("npm run dev:all --prefix frontend", shell=True)
     except KeyboardInterrupt:
         print_styled("\nStopping services...", "warning")
 

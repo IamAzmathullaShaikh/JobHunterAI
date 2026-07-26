@@ -52,7 +52,7 @@ graph TD
 
 ## ✨ Key Features
 
-- **3-Tier Smart AI Router**: Seamlessly switches between Groq, Gemini, and local models based on task capability and health.
+- **3-Tier Smart AI Router**: Dynamically routes tasks based on capability and health. Supports `auto` mode to automatically switch between Groq, Gemini, and local models.
 - **AI Interview Coach**: practice mock interviews with real-time scoring and STAR method guidance grounded in your resume.
 - **Production Resume Builder**: Multi-document management with 10 professional A4 templates and high-fidelity PDF/DOCX exports.
 - **Recruiter CRM**: Discover Hiring Managers and Recruiters via live intelligence and manage outreach history.
@@ -90,10 +90,14 @@ npm run build
 ### 3. Configuration
 Create a `.env` file in the root directory:
 ```env
+ENVIRONMENT=development
+CORS_ORIGINS=*
+AI_PROVIDER=auto
 GROQ_API_KEY=your_groq_key
 GEMINI_API_KEY=your_gemini_key
-DATABASE_URL=postgresql+asyncpg://user:pass@host/db
+DATABASE_URL=sqlite+aiosqlite:///jobhunter.db
 ```
+For production, set `ENVIRONMENT=production` and specify explicit `CORS_ORIGINS`.
 
 ### 4. Run the Application
 ```bash

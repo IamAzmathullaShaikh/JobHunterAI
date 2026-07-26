@@ -3,8 +3,8 @@ version: "3.8"
 services:
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: jobhunter-ai-ecosystem
     restart: unless-stopped
     ports:
@@ -17,8 +17,17 @@ services:
       - DATABASE_URL=sqlite+aiosqlite:////app/data/jobhunter.db
     volumes:
       - jobhunter-data:/app/data
+      - jobhunter-logs:/app/logs
     env_file:
       - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 30s
 
 volumes:
   jobhunter-data:
+  jobhunter-logs:

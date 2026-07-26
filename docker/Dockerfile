@@ -15,6 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user for security
+RUN groupadd -r jobhunter && useradd -r -g jobhunter jobhunter
+
 WORKDIR /app
 
 # Install Python dependencies
@@ -27,13 +30,15 @@ COPY core ./core
 COPY backend ./backend
 COPY domain ./domain
 COPY application ./application
-COPY prompts ./backend/prompts
 
 # Copy static frontend assets
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Create directory for persistent data
-RUN mkdir -p /app/data
+# Create directory for persistent data and logs
+RUN mkdir -p /app/data /app/logs && chown -R jobhunter:jobhunter /app
+
+# Switch to non-root user
+USER jobhunter
 
 # Environment variables
 ENV PYTHONPATH=/app/core
@@ -41,6 +46,10 @@ ENV DATABASE_URL=sqlite:////app/data/jobhunter.db
 ENV PORT=8000
 
 EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8000/api/health || exit 1
 
 # Start FastAPI server
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
