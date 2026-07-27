@@ -13,10 +13,10 @@ logger = logging.getLogger("jobhunterai.generator")
 
 # --- Cloud Primary ---
 async def cloud_generate_cover(
-    candidate: Dict[str, Any], job: Dict[str, Any]
+    candidate: Dict[str, Any], job: Dict[str, Any], provider: Optional[str] = None
 ) -> Dict[str, str]:
-    """Generates a cover letter using Groq or Gemini."""
-    client = get_llm_client()
+    """Generates a cover letter using cloud LLM."""
+    client = get_llm_client(provider)
 
     prompt = f"""
     Write a professional, high-conversion cover letter.
@@ -103,4 +103,16 @@ local_generate_cover.safe_placeholder = {
 async def generate_cover_letter(
     candidate: Dict[str, Any], job: Dict[str, Any]
 ) -> Dict[str, str]:
-    return await route(cloud_generate_cover, local_generate_cover, candidate, job)
+
+    async def groq_tier(**kwargs):
+        return await cloud_generate_cover(candidate, job, provider="groq")
+    groq_tier.required_envs = ["GROQ_API_KEY"]
+
+    async def gemini_tier(**kwargs):
+        return await cloud_generate_cover(candidate, job, provider="gemini")
+    gemini_tier.required_envs = ["GEMINI_API_KEY"]
+
+    async def local_tier(**kwargs):
+        return await local_generate_cover(candidate, job)
+
+    return await route(groq_tier, gemini_tier, local_tier)

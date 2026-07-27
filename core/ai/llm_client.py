@@ -152,30 +152,42 @@ class GeminiLLMClient(LLMClient):
 class SmartLLMClient(LLMClient):
     """
     Orchestrates multiple LLM providers with automatic fallback.
-    Used when AI_PROVIDER='auto'.
+    Utilizes 3-tier routing: Groq (Primary) -> Gemini (Secondary) -> Ollama (Local).
     """
 
     async def chat_completion(self, model: str = None, messages: list = []) -> Any:
 
-        async def try_primary():
-            client = get_llm_client(settings.DEFAULT_AI_PROVIDER)
-            # Use specific model if provided, else get capability-based model for the provider
-            target_model = model or client.get_model_for_capability(Capability.REASONING)
+        async def groq_tier(**kwargs):
+            client = GroqLLMClient()
+            if not client.client:
+                raise ValueError("Groq client not available")
+            target_model = model or settings.GROQ_MODEL
             return await client.chat_completion(target_model, messages)
 
-        try_primary.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
+        groq_tier.required_envs = ["GROQ_API_KEY"]
+        groq_tier.safe_placeholder = {"error": "Groq tier failed"}
 
-        async def try_fallback():
-            client = get_llm_client(settings.FALLBACK_AI_PROVIDER)
-            target_model = model or client.get_model_for_capability(Capability.REASONING)
+        async def gemini_tier(**kwargs):
+            client = GeminiLLMClient()
+            if not client.client:
+                raise ValueError("Gemini client not available")
+            target_model = model or settings.GEMINI_MODEL
             return await client.chat_completion(target_model, messages)
 
-        try_fallback.required_envs = [["GEMINI_API_KEY", "OPENROUTER_API_KEY"]]
+        gemini_tier.required_envs = ["GEMINI_API_KEY"]
+        gemini_tier.safe_placeholder = {"error": "Gemini tier failed"}
 
-        # Route uses Smart Router logic for Tier 1 -> Tier 3
-        # Here we adapt it for DEFAULT -> FALLBACK
-        # The smart_router.route also handles local fallback internally if primary fails
-        return await route(try_primary, try_fallback)
+        async def ollama_tier(**kwargs):
+            client = OllamaLLMClient()
+            if not client.client:
+                raise ValueError("Ollama client not available")
+            target_model = model or settings.OLLAMA_MODEL
+            return await client.chat_completion(target_model, messages)
+
+        ollama_tier.required_envs = []
+        ollama_tier.safe_placeholder = {"error": "All LLM tiers exhausted"}
+
+        return await route(groq_tier, gemini_tier, ollama_tier)
 
 
 def get_llm_client(provider_override: str = None) -> LLMClient:

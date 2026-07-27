@@ -1,11 +1,12 @@
 import re
+import uuid
 from typing import Dict, Tuple
 
 
 class PIIRedactor:
     """
     Redacts and restores PII (Personally Identifiable Information) from text
-    to protect user privacy when sending data to external AI providers.
+    using atomic regex substitution and UUID placeholders to prevent collisions.
     """
 
     # Simple patterns for redaction
@@ -18,6 +19,7 @@ class PIIRedactor:
     def redact(self, text: str) -> Tuple[str, Dict[str, str]]:
         """
         Redacts PII from text and returns the redacted text and a mapping to restore it.
+        Uses atomic substitution to prevent partial redaction bugs.
         """
         if not text:
             return "", {}
@@ -25,13 +27,14 @@ class PIIRedactor:
         mapping = {}
         redacted_text = text
 
+        def replacer(match):
+            placeholder = f"[[REDACTED_{pii_type}_{uuid.uuid4().hex[:8]}]]"
+            val = match.group(0)
+            mapping[placeholder] = val
+            return placeholder
+
         for pii_type, pattern in self.PATTERNS.items():
-            matches = re.findall(pattern, redacted_text, re.IGNORECASE)
-            for i, match in enumerate(matches):
-                # Ensure we don't double redact or miss similar patterns
-                placeholder = f"[[REDACTED_{pii_type}_{i}]]"
-                mapping[placeholder] = match
-                redacted_text = redacted_text.replace(match, placeholder)
+            redacted_text = re.sub(pattern, replacer, redacted_text, flags=re.IGNORECASE)
 
         return redacted_text, mapping
 
@@ -43,8 +46,9 @@ class PIIRedactor:
             return text
 
         restored_text = text
-        for placeholder, original in mapping.items():
-            restored_text = restored_text.replace(placeholder, original)
+        # Sort placeholders by length descending to prevent partial replacement if any overlap
+        for placeholder in sorted(mapping.keys(), key=len, reverse=True):
+            restored_text = restored_text.replace(placeholder, mapping[placeholder])
 
         return restored_text
 

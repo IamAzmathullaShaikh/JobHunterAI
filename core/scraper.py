@@ -8,35 +8,48 @@ from core.config.settings import settings
 logger = logging.getLogger("jobhunterai.scraper")
 
 
+from core.providers.apify.registry import registry as apify_registry
+from core.providers.apify.selector import selector as apify_selector
+
 # --- Cloud Primary ---
 async def apify_scrape(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Uses Apify Actors for high-quality scraping."""
+    """Uses Apify Actor Registry to discover jobs dynamically."""
     from apify_client import ApifyClient
 
     token = settings.APIFY_API_TOKEN
-    client = ApifyClient(token)
+    if not token:
+        raise ValueError("APIFY_API_TOKEN not configured")
 
-    # Use a reliable public actor for job scraping
-    actor_id = settings.APIFY_ACTOR_ID
+    client = ApifyClient(token)
+    query = payload.get("query", "Software Engineer")
+    location = payload.get("location", "Remote")
+
+    # Select best actor
+    actor_meta = apify_selector.select_actor(query, location)
+    if not actor_meta or not actor_meta.get("actor_id"):
+        logger.warning("No suitable Apify actor found in registry.")
+        return None
+
+    actor_id = actor_meta["actor_id"]
 
     try:
-        run_input = {
-            "queries": payload.get("query", "Software Engineer"),
-            "maxPagesPerQuery": 1,
-        }
+        if "google-jobs" in actor_id:
+            run_input = {"queries": query, "maxPagesPerQuery": 1}
+        else:
+            run_input = {"queries": query}
 
-        logger.info(f"Calling Apify Actor: {actor_id}")
+        logger.info(f"Dynamic Dispatch -> Apify Actor: {actor_id}")
         run = client.actor(actor_id).call(run_input=run_input)
         results = list(client.dataset(run["defaultDatasetId"]).iterate_items())
 
         if not results:
-            logger.warning(f"Apify Actor {actor_id} returned no results.")
-            return None  # Trigger fallback
+            return None
 
-        return {"source": "apify", "data": results}
+        apify_registry.mark_actor_healthy(actor_meta["id"])
+        return {"source": f"apify:{actor_meta['id']}", "data": results}
     except Exception as e:
-        logger.error(f"Apify Actor {actor_id} call failed: {str(e)}")
-        # Re-raise to trigger the smart_router fallback to local JobSpy
+        logger.error(f"Apify Actor {actor_id} failed: {str(e)}")
+        apify_registry.mark_actor_unhealthy(actor_meta["id"], str(e))
         raise e
 
 
@@ -121,7 +134,16 @@ local_scrape.safe_placeholder = {"source": "error", "data": []}
 
 # --- Public API ---
 async def scrape_jobs(payload: Dict[str, Any]) -> Dict[str, Any]:
-    res = await route(apify_scrape, local_scrape, payload)
+
+    async def apify_tier(**kwargs):
+        return await apify_scrape(payload)
+    apify_tier.required_envs = ["APIFY_API_TOKEN"]
+
+    async def jobspy_tier(**kwargs):
+        return await local_scrape(payload)
+    jobspy_tier.required_envs = []
+
+    res = await route(apify_tier, jobspy_tier)
 
     # Simple Normalization
     normalized = []

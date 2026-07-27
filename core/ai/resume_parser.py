@@ -17,9 +17,9 @@ logger = logging.getLogger("jobhunterai.resume_parser")
 
 
 # --- Cloud Primary ---
-async def cloud_parse_resume(text: str = "", **kwargs) -> Dict[str, Any]:
-    """Parses resume text using Groq or Gemini for structured JSON."""
-    client = get_llm_client()
+async def cloud_parse_resume(text: str = "", provider: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+    """Parses resume text using cloud LLM for structured JSON."""
+    client = get_llm_client(provider)
 
     prompt = f"""
     Analyze the following candidate resume text and extract structured profile parameters.
@@ -137,7 +137,19 @@ class ResumeParser:
     """Backward-compatible class wrapper for tiered parsing logic."""
 
     async def parse_resume(self, text: str) -> ParsedProfileDTO:
-        res = await route(cloud_parse_resume, local_parse_resume, text)
+
+        async def groq_tier(**kwargs):
+            return await cloud_parse_resume(text=text, provider="groq")
+        groq_tier.required_envs = ["GROQ_API_KEY"]
+
+        async def gemini_tier(**kwargs):
+            return await cloud_parse_resume(text=text, provider="gemini")
+        gemini_tier.required_envs = ["GEMINI_API_KEY"]
+
+        async def local_tier(**kwargs):
+            return await local_parse_resume(text=text)
+
+        res = await route(groq_tier, gemini_tier, local_tier)
         return ParsedProfileDTO(**res["data"])
 
 
@@ -145,6 +157,16 @@ async def parse_resume(
     file_bytes: Optional[bytes] = None, text: Optional[str] = None
 ) -> Dict[str, Any]:
     """Functional API returning source info and raw data."""
-    return await route(
-        cloud_parse_resume, local_parse_resume, text=text or "", file_bytes=file_bytes
-    )
+
+    async def groq_tier(**kwargs):
+        return await cloud_parse_resume(text=text or "", file_bytes=file_bytes, provider="groq")
+    groq_tier.required_envs = ["GROQ_API_KEY"]
+
+    async def gemini_tier(**kwargs):
+        return await cloud_parse_resume(text=text or "", file_bytes=file_bytes, provider="gemini")
+    gemini_tier.required_envs = ["GEMINI_API_KEY"]
+
+    async def local_tier(**kwargs):
+        return await local_parse_resume(text=text or "", file_bytes=file_bytes)
+
+    return await route(groq_tier, gemini_tier, local_tier)

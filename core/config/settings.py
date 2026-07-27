@@ -64,8 +64,14 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str = "qwen2.5-coder:7b"
 
     # --- Scraper Configuration ---
+    APIFY_ENABLED: bool = True
     APIFY_API_TOKEN: Optional[str] = None
     APIFY_ACTOR_ID: str = "apify/google-jobs-scraper"
+    APIFY_MAX_CONCURRENT_RUNS: int = 3
+    APIFY_RUN_TIMEOUT_SECONDS: int = 120
+    APIFY_HEALTH_CHECK_INTERVAL_MINUTES: int = 60
+    APIFY_ACTORS_CONFIG_PATH: str = "config/apify_actors.yaml"
+    APIFY_FALLBACK_TO_SAMPLE: bool = True
     HUNTER_API_KEY: Optional[str] = None
 
     # --- Security & CORS ---

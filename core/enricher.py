@@ -98,9 +98,19 @@ class Enricher:
     async def find_decision_makers(
         self, company: str, role: str = "Engineering"
     ) -> List[Dict[str, Any]]:
-        return await route(
-            cloud_find_decision_makers, local_find_decision_makers, company, role
-        )
+
+        async def apify_tier(**kwargs):
+            return await cloud_find_decision_makers(company, role)
+        apify_tier.required_envs = ["APIFY_API_TOKEN"]
+
+        async def hunter_tier(**kwargs):
+            return await cloud_find_decision_makers(company, role)
+        hunter_tier.required_envs = ["HUNTER_API_KEY"]
+
+        async def local_tier(**kwargs):
+            return await local_find_decision_makers(company, role)
+
+        return await route(apify_tier, hunter_tier, local_tier)
 
     async def draft_outreach(
         self,
@@ -133,6 +143,4 @@ enricher = Enricher()
 
 
 async def find_decision_makers(company: str, role: str) -> List[Dict[str, Any]]:
-    return await route(
-        cloud_find_decision_makers, local_find_decision_makers, company, role
-    )
+    return await enricher.find_decision_makers(company, role)

@@ -22,10 +22,10 @@ class ResumeEngine:
         # Redact JD for privacy (though usually JD is public, good practice)
         safe_jd = job_description[:4000]
 
-        async def groq_call():
+        async def llm_call(provider: str):
             from core.ai.llm_client import get_llm_client
 
-            client = get_llm_client()
+            client = get_llm_client(provider)
             prompt = f"""
             Optimize the following resume bullet points to better match this job description.
             Maintain truthfulness but emphasize relevant keywords and impact.
@@ -62,13 +62,19 @@ class ResumeEngine:
                 except:
                     pass
 
-            return bullets  # Fallback to original
+            return None
 
-        def local_call():
+        async def groq_tier(**kwargs): return await llm_call("groq")
+        groq_tier.required_envs = ["GROQ_API_KEY"]
+
+        async def gemini_tier(**kwargs): return await llm_call("gemini")
+        gemini_tier.required_envs = ["GEMINI_API_KEY"]
+
+        def local_tier(**kwargs):
             # Simple keyword injector (placeholder)
             return [f"{b} (Optimized for JD)" for b in bullets]
 
-        result_data = await smart_router(groq_call, local_call)
+        result_data = await smart_router(groq_tier, gemini_tier, local_tier)
 
         # Normalize output for frontend
         source = "cloud" if isinstance(result_data, list) and len(result_data) > 0 and "(Optimized for JD)" not in result_data[0] else "local"

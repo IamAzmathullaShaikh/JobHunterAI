@@ -1,0 +1,49 @@
+version: "1.0.0"
+last_updated: "2026-07-27T12:00:00Z"
+
+scrapers:
+  - id: linkedin_jobs
+    name: LinkedIn Jobs Scraper
+    actor_id: "curious_coder/linkedin-jobs-scraper"
+    priority: 1
+    enabled: true
+    timeout_seconds: 120
+    max_results: 20
+    cost_per_run_usd: 0.05
+    description: "High-quality LinkedIn job listings with detailed descriptions."
+    capabilities: ["linkedin", "full-time", "internship"]
+    requirements: ["APIFY_API_TOKEN"]
+    retry_policy:
+      max_retries: 2
+      backoff_multiplier: 2
+      initial_delay_ms: 1000
+
+  - id: google_jobs
+    name: Google Jobs Scraper
+    actor_id: "apify/google-jobs-scraper"
+    priority: 2
+    enabled: true
+    timeout_seconds: 90
+    max_results: 50
+    cost_per_run_usd: 0.02
+    description: "Aggregated results from Google Jobs search."
+    capabilities: ["google", "remote", "worldwide"]
+    requirements: ["APIFY_API_TOKEN"]
+
+  - id: indeed_jobs
+    name: Indeed Scraper
+    actor_id: "apify/indeed-scraper"
+    priority: 3
+    enabled: true
+    timeout_seconds: 120
+    max_results: 30
+    capabilities: ["indeed"]
+    requirements: ["APIFY_API_TOKEN"]
+
+local_scrapers:
+  - id: jobspy_local
+    name: JobSpy Local
+    priority: 999
+    enabled: true
+    description: "Zero-cost local scraping fallback."
+    capabilities: ["linkedin", "indeed", "glassdoor", "zip_recruiter"]

@@ -14,6 +14,15 @@
 
 JobHunterAI follows a clean, modular architecture designed for resilience and privacy.
 
+### AI Multi-Tier Routing
+The system implements a verified **3-Tier Routing** logic:
+1.  **Tier 1 (Groq)**: Ultra-fast Llama 3.3 for real-time tailoring.
+2.  **Tier 2 (Gemini)**: High-reasoning 1.5 Flash for complex context.
+3.  **Tier 3 (Local)**: Sentence-Transformers or Ollama for privacy and offline fallback.
+
+### Dynamic Scraper Registry
+Utilizes a YAML-based registry (`config/apify_actors.yaml`) to manage a fleet of Apify actors (LinkedIn, Indeed, Google Jobs) with automated health monitoring and priority-based selection.
+
 ```mermaid
 graph TD
     subgraph Client Layer

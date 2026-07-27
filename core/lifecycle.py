@@ -19,6 +19,10 @@ class AppLifecycleManager:
     @staticmethod
     async def startup() -> None:
         """Sequential startup of all platform infrastructure."""
+        if container.registry.is_frozen:
+            logger.warning("Platform already started. Skipping startup sequence.")
+            return
+
         # 1. Start Telemetry (The observer starts first)
         container.telemetry_dispatcher.publish(ApplicationStarting())
         logger.info("Platform startup sequence initiated...")
@@ -27,11 +31,14 @@ class AppLifecycleManager:
         ProviderLoader.load_all(container.registry)
 
         # 3. Initialize Database
-        from core.db import init_db
+        from core.database.connection import async_engine
+        from core.database.models import Base
 
+        logger.info("Initializing database schema...")
         try:
-            await init_db()
-            logger.info("Database migration check complete.")
+            async with async_engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database initialization successful.")
         except Exception as e:
             logger.error(f"Database initialization failed: {e}")
             # In production, we might want to fail-fast here

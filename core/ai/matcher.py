@@ -29,9 +29,9 @@ def get_local_model():
 
 
 # --- Cloud Primary ---
-async def cloud_analyze_fit(job_description: str, user_profile: str) -> Dict[str, Any]:
+async def cloud_analyze_fit(job_description: str, user_profile: str, provider: Optional[str] = None) -> Dict[str, Any]:
     """Uses Groq/Gemini to compute comprehensive ATS diagnostic report."""
-    client = get_llm_client()
+    client = get_llm_client(provider)
 
     prompt = f"""
     Evaluate the candidate profile against the job description for ATS compatibility.
@@ -166,9 +166,21 @@ class JobMatcher:
     async def analyze_fit(
         self, job_description: str, user_profile: str
     ) -> Dict[str, Any]:
-        return await route(
-            cloud_analyze_fit, local_analyze_fit, job_description, user_profile
-        )
+
+        async def groq_tier(**kwargs):
+            return await cloud_analyze_fit(job_description, user_profile, provider="groq")
+
+        groq_tier.required_envs = ["GROQ_API_KEY"]
+
+        async def gemini_tier(**kwargs):
+            return await cloud_analyze_fit(job_description, user_profile, provider="gemini")
+
+        gemini_tier.required_envs = ["GEMINI_API_KEY"]
+
+        async def local_tier(**kwargs):
+            return await local_analyze_fit(job_description, user_profile)
+
+        return await route(groq_tier, gemini_tier, local_tier)
 
     async def optimize_bullet(self, bullet: str, jd: str) -> Dict[str, Any]:
         return await cloud_optimize_bullet(bullet, jd)

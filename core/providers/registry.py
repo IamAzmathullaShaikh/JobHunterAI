@@ -121,6 +121,11 @@ class ProviderRegistry:
         """Checks if a provider is registered."""
         return full_id in self._storage
 
+    @property
+    def is_frozen(self) -> bool:
+        """Checks if the registry is frozen."""
+        return self._is_frozen
+
     # --- Validation Pipeline Stages ---
 
     def _validate_class(self, pid: str, cls: Type) -> None:
