@@ -96,8 +96,21 @@ class Settings(BaseSettings):
 
         # 2. AI Provider Validation
         allowed_providers = ["groq", "gemini", "openai", "openrouter", "ollama", "auto"]
-        if self.AI_PROVIDER.lower() not in allowed_providers:
+        provider = self.AI_PROVIDER.lower()
+        if provider not in allowed_providers:
             raise ValueError(f"AI_PROVIDER must be one of {allowed_providers}")
+
+        # 3. Cloud Provider Key Checks
+        # When AI_PROVIDER is 'auto', we don't fail immediately as it handles fallback.
+        # But for specific cloud providers, we require the key.
+        if provider == "groq" and not self.GROQ_API_KEY:
+            raise ValueError("GROQ_API_KEY is required when AI_PROVIDER='groq'")
+        if provider == "gemini" and not self.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY is required when AI_PROVIDER='gemini'")
+        if provider == "openai" and not self.OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY is required when AI_PROVIDER='openai'")
+        if provider == "openrouter" and not self.OPENROUTER_API_KEY:
+            raise ValueError("OPENROUTER_API_KEY is required when AI_PROVIDER='openrouter'")
 
         return self
 

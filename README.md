@@ -53,7 +53,7 @@ graph TD
 ## ✨ Key Features
 
 - **3-Tier Smart AI Router**: Dynamically routes tasks based on capability and health. Supports `auto` mode to automatically switch between Groq, Gemini, and local models.
-- **AI Interview Coach**: practice mock interviews with real-time scoring and STAR method guidance grounded in your resume.
+- **AI Interview Coach**: Practice mock interviews with real-time scoring and STAR method guidance grounded in your resume.
 - **Production Resume Builder**: Multi-document management with 10 professional A4 templates and high-fidelity PDF/DOCX exports.
 - **Recruiter CRM**: Discover Hiring Managers and Recruiters via live intelligence and manage outreach history.
 - **Intelligent Job Discovery**: Aggregated live job feeds from LinkedIn and Glassdoor with automated deduplication and AI enrichment.
@@ -68,6 +68,7 @@ graph TD
 - **Python 3.11+**
 - **Node.js 22+**
 - **PostgreSQL** (Optional, defaults to SQLite)
+- **External Services**: [Groq](https://groq.com/) (Recommended), [Apify](https://apify.com/) (For cloud scraping)
 
 ### 2. Installation
 
@@ -80,40 +81,86 @@ cd JobHunterAI
 python -m venv venv
 source venv/bin/activate # Windows: venv\Scripts\activate
 pip install -r backend/requirements.txt
+python -m playwright install chromium
 
 # Setup Frontend
 cd frontend
 npm install
 npm run build
+cd ..
 ```
 
 ### 3. Configuration
-Create a `.env` file in the root directory:
-```env
-ENVIRONMENT=development
-CORS_ORIGINS=*
-AI_PROVIDER=auto
-GROQ_API_KEY=your_groq_key
-GEMINI_API_KEY=your_gemini_key
-DATABASE_URL=sqlite+aiosqlite:///jobhunter.db
+Copy `.env.example` to `.env` and fill in your API keys:
+```bash
+cp .env.example .env
 ```
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `ENVIRONMENT` | `development` | `development`, `production`, `testing`, `staging` |
+| `PORT` | `8000` | API server port |
+| `AI_PROVIDER` | `auto` | Primary AI engine (`auto`, `groq`, `gemini`, `openai`, `ollama`) |
+| `GROQ_API_KEY` | - | Required for Tier 1 inference |
+| `GEMINI_API_KEY` | - | Required for Tier 2 inference |
+| `DATABASE_URL` | `sqlite+aiosqlite:///./jobhunter.db` | SQLAlchemy connection string |
+| `APIFY_API_TOKEN` | - | Required for premium job board scraping |
+| `CORS_ORIGINS` | `*` | Allowed origins (CSV or JSON array) |
+
 For production, set `ENVIRONMENT=production` and specify explicit `CORS_ORIGINS`.
 
 ### 4. Run the Application
 ```bash
-# Start Production Server
+# Start Backend
 python backend/main.py
+
+# Start Frontend (in separate terminal)
+cd frontend
+npm run dev
 ```
 
 ---
 
-## 🗺️ SaaS Roadmap & Future Vision
+## 🛠 Project Management
 
-JobHunterAI is evolving from a local power-user tool into a comprehensive enterprise SaaS platform.
+### Database Migrations
+We use Alembic for version-controlled schema updates:
+```bash
+cd backend
+$env:PYTHONPATH="..;../core" # Windows
+python -m alembic upgrade head
+```
 
-- **v1.0 (Current)**: Hardened production-ready local ecosystem with 3-tier AI routing.
-- **v2.0 (Target)**: Multi-tenant SaaS with JWT authentication, distributed worker queues (Redis/Celery), and Stripe billing integration.
-- **v3.0 (Vision)**: Multi-agent orchestration for autonomous job application management and voice-based AI interview coaching.
+### Running Tests
+```bash
+$env:PYTHONPATH=".;core"
+python -m pytest tests/unit tests/application
+```
+
+### Docker Deployment
+```bash
+docker-compose up --build -d
+```
+
+---
+
+## 📂 Folder Structure
+
+- `backend/`: FastAPI routers and API entry points.
+- `frontend/`: React components and dashboard UI.
+- `core/`: Business logic, AI engine, and database infrastructure.
+- `domain/`: Pure domain entities and value objects.
+- `application/`: Use cases and orchestration services.
+- `docs/`: Technical guides and architecture records.
+- `tests/`: Multi-level test suite (Unit, Integration, E2E).
+
+---
+
+## 📖 Documentation
+- [Architecture Guide](docs/Architecture.md)
+- [API Specification](docs/API.md)
+- [Configuration Manual](docs/Configuration.md)
+- [Deployment Runbook](docs/Deployment.md)
 
 ---
 
@@ -121,20 +168,24 @@ JobHunterAI is evolving from a local power-user tool into a comprehensive enterp
 
 - **Backend**: FastAPI, SQLAlchemy 2.0, Pydantic, Alembic
 - **Frontend**: React 18, TypeScript, Tailwind CSS, Lucide React
-- **AI/ML**: Groq (Llama 3.3), Google Gemini, Ollama
-- **Data**: PostgreSQL, Redis (Caching), Pandas
+- **AI/ML**: Groq (Llama 3.3), Google Gemini, Ollama, Sentence-Transformers
+- **Data**: PostgreSQL, SQLite, Pandas
 - **Export**: Playwright (PDF), python-docx, Markdown
 
 ---
 
-## 📄 License
+## 🤝 Contributing
+Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) before submitting a Pull Request.
 
+---
+
+## 📄 License
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgements
-
-- [FastAPI](https://fastapi.tiangolo.com/) for the high-performance API framework.
-- [Lucide](https://lucide.dev/) for the beautiful icons.
-- [Tailwind CSS](https://tailwindcss.com/) for the styling engine.
+## 🆘 Support & Troubleshooting
+If you encounter issues, check the [Support Guide](SUPPORT.md) or open a GitHub Issue.
+- **Port Conflict**: Change `PORT` in `.env` if 8000 is occupied.
+- **AI Failures**: Verify your API keys in `.env`.
+- **Scraper Errors**: Ensure `playwright` is installed via `python -m playwright install`.
