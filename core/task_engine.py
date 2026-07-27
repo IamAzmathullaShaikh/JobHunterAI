@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -370,7 +371,7 @@ class TaskEngine:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
             )
-            content = response.choices[0].message.content if hasattr(response, "choices") else str(response)
+            return response.choices[0].message.content if hasattr(response, "choices") else str(response)
 
         result_text = await smart_route(llm_call, lambda: f"Refined {section_id} paragraph.")
 
@@ -565,7 +566,7 @@ class TaskEngine:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
             )
-            content = response.choices[0].message.content if hasattr(response, "choices") else str(response)
+            return response.choices[0].message.content if hasattr(response, "choices") else str(response)
 
         result_text = await smart_route(llm_call, lambda: f"Hi {recruiter_name}, I'm following up on my application to {company_name}...")
 

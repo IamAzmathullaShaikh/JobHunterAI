@@ -144,9 +144,37 @@ class TemplateEngine:
             {% endfor %}
             {% endif %}
 
+            {% if projects %}
+            <h2>Projects</h2>
+            {% for p in projects %}
+            <div class="section-item">
+                <h3>{{ p.name }}</h3>
+                <div class="item-sub" style="font-style: italic;">{{ p.role }} | {{ p.date }}</div>
+                <ul class="bullets">{% for b in p.bullets %}{% if b.strip() %}<li>{{ b }}</li>{% endif %}{% endfor %}</ul>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if education %}
+            <h2>Education</h2>
+            {% for edu in education %}
+            <div class="section-item">
+                <h3>{{ edu.school }}</h3>
+                <p>{{ edu.degree }} | {{ edu.date }}</p>
+            </div>
+            {% endfor %}
+            {% endif %}
+
             {% if skills %}
             <h2>Expertise</h2>
             <div class="skills-list">{% for s in skills %}<span class="skill-tag">{{ s }}</span>{% endfor %}</div>
+            {% endif %}
+
+            {% if certifications %}
+            <h2>Certifications</h2>
+            <ul class="bullets">
+                {% for c in certifications %}<li>{{ c.name }}, {{ c.issuer }} ({{ c.date }})</li>{% endfor %}
+            </ul>
             {% endif %}
         </body>
         </html>
@@ -170,7 +198,7 @@ class TemplateEngine:
             {% if summary %}<p style="font-style: italic; font-size: 1.1em; line-height: 1.6; border-left: 4px solid #eee; padding-left: 20px;">{{ summary }}</p>{% endif %}
 
             {% if work_history %}
-            <h2>Leadership & Experience</h2>
+            <h2>Professional Experience</h2>
             {% for job in work_history %}
             <div class="section-item">
                 <div class="item-header"><span class="accent" style="font-size: 1.1em;">{{ job.company | upper }}</span><span>{{ job.start_date }} - {{ job.end_date }}</span></div>
@@ -178,6 +206,31 @@ class TemplateEngine:
                 <ul class="bullets">{% for b in job.bullets %}{% if b.strip() %}<li>{{ b }}</li>{% endif %}{% endfor %}</ul>
             </div>
             {% endfor %}
+            {% endif %}
+
+            {% if projects %}
+            <h2>Key Initiatives</h2>
+            {% for p in projects %}
+            <div class="section-item">
+                <div class="item-header"><span class="accent">{{ p.name }}</span><span>{{ p.date }}</span></div>
+                <ul class="bullets">{% for b in p.bullets %}{% if b.strip() %}<li>{{ b }}</li>{% endif %}{% endfor %}</ul>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if education %}
+            <h2>Education</h2>
+            {% for edu in education %}
+            <div class="section-item">
+                <div class="item-header"><span>{{ edu.school }}</span><span>{{ edu.date }}</span></div>
+                <p>{{ edu.degree }}</p>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if skills %}
+            <h2>Core Competencies</h2>
+            <p>{{ skills | join(' • ') }}</p>
             {% endif %}
         </body>
         </html>
@@ -211,6 +264,16 @@ class TemplateEngine:
                 <div class="item-header"><span style="color: var(--accent-color);">[{{ job.company }}]</span><span>{{ job.start_date }}..{{ job.end_date }}</span></div>
                 <div class="item-sub">{{ job.title }} @ {{ job.location }}</div>
                 <ul class="bullets">{% for b in job.bullets %}{% if b.strip() %}<li>{{ b }}</li>{% endif %}{% endfor %}</ul>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if projects %}
+            <h2># technical_projects</h2>
+            {% for p in projects %}
+            <div class="section-item">
+                <div class="item-header"><span style="color: var(--accent-color);">{{ p.name }}</span><span>{{ p.date }}</span></div>
+                <ul class="bullets">{% for b in p.bullets %}{% if b.strip() %}<li>{{ b }}</li>{% endif %}{% endfor %}</ul>
             </div>
             {% endfor %}
             {% endif %}
@@ -255,6 +318,11 @@ class TemplateEngine:
             <div class="section-item"><b>{{ edu.school }}</b>, {{ edu.degree }} ({{ edu.date }})</div>
             {% endfor %}
             {% endif %}
+
+            {% if skills %}
+            <h2>Skills</h2>
+            <p>{{ skills | join(', ') }}</p>
+            {% endif %}
         </body>
         </html>
         """,
@@ -273,20 +341,33 @@ class TemplateEngine:
                 <div class="sidebar">
                     <h1>{{ header.name }}</h1>
                     <p style="font-weight: bold; margin-bottom: 20px;">{{ header.title }}</p>
-                    <div style="font-size: 11px; space-y: 8px;">
+                    <div style="font-size: 11px; margin-bottom: 30px;">
                         <div>{{ header.email }}</div>
                         <div>{{ header.phone }}</div>
                         <div>{{ header.location }}</div>
                     </div>
+
                     {% if skills %}
                     <h2>Expertise</h2>
                     <ul style="list-style: none; padding:0; font-size: 11px;">
                         {% for s in skills %}<li style="margin-bottom: 4px;">• {{ s }}</li>{% endfor %}
                     </ul>
                     {% endif %}
+
+                    {% if education %}
+                    <h2>Education</h2>
+                    <div style="font-size: 10px;">
+                        {% for edu in education %}
+                        <div style="margin-bottom: 10px;">
+                            <b>{{ edu.school }}</b><br>{{ edu.degree }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="main">
                     {% if summary %}<h2>Profile</h2><p style="font-size: 12px;">{{ summary }}</p>{% endif %}
+
                     {% if work_history %}
                     <h2>Experience</h2>
                     {% for job in work_history %}
@@ -294,6 +375,16 @@ class TemplateEngine:
                         <div style="font-weight: bold;">{{ job.title }}</div>
                         <div style="font-size: 12px; color: #666;">{{ job.company }} | {{ job.start_date }} - {{ job.end_date }}</div>
                         <ul class="bullets">{% for b in job.bullets %}{% if b.strip() %}<li>{{ b }}</li>{% endif %}{% endfor %}</ul>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+
+                    {% if projects %}
+                    <h2>Projects</h2>
+                    {% for p in projects %}
+                    <div class="section-item">
+                        <div style="font-weight: bold;">{{ p.name }}</div>
+                        <ul class="bullets">{% for b in p.bullets %}{% if b.strip() %}<li>{{ b }}</li>{% endif %}{% endfor %}</ul>
                     </div>
                     {% endfor %}
                     {% endif %}
@@ -317,7 +408,7 @@ class TemplateEngine:
             <h1>{{ header.name | upper }}</h1>
             <p style="text-align: center; font-size: 13px;">{{ header.email }} &nbsp;•&nbsp; {{ header.phone }} &nbsp;•&nbsp; {{ header.location }}</p>
 
-            {% if summary %}<h2>Professional Summary</h2><p style="text-align: center; max-w: 600px; margin: 0 auto;">{{ summary }}</p>{% endif %}
+            {% if summary %}<h2>Professional Summary</h2><p style="text-align: center; max-width: 600px; margin: 0 auto;">{{ summary }}</p>{% endif %}
 
             {% if work_history %}
             <h2>Experience</h2>
@@ -330,6 +421,20 @@ class TemplateEngine:
                 </div>
             </div>
             {% endfor %}
+            {% endif %}
+
+            {% if education %}
+            <h2>Education</h2>
+            {% for edu in education %}
+            <div class="section-item">
+                <b>{{ edu.school }}</b><br>{{ edu.degree }} ({{ edu.date }})
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if skills %}
+            <h2>Key Skills</h2>
+            <p style="text-align: center;">{{ skills | join(' | ') }}</p>
             {% endif %}
         </body>
         </html>
@@ -351,15 +456,35 @@ class TemplateEngine:
             <div class="content">
                 <h1>{{ header.name }}</h1>
                 <p style="font-size: 24px; opacity: 0.6;">{{ header.title }}</p>
-                <div style="margin-top: 20px; font-size: 14px;">{{ header.email }} / {{ header.linkedin }}</div>
+                <div style="margin-top: 20px; font-size: 14px; opacity: 0.8;">{{ header.email }} / {{ header.linkedin }} / {{ header.location }}</div>
+
+                {% if summary %}
+                <h2>Profile</h2>
+                <p style="font-size: 16px; line-height: 1.8; opacity: 0.9;">{{ summary }}</p>
+                {% endif %}
 
                 {% if work_history %}
                 <h2>Work Experience</h2>
                 {% for job in work_history %}
                 <div class="section-item" style="margin-bottom: 30px;">
-                    <div class="item-header" style="font-size: 18px;">{{ job.company }} // {{ job.title }}</div>
-                    <div style="font-size: 12px; opacity: 0.5;">{{ job.start_date }} - {{ job.end_date }}</div>
+                    <div class="item-header" style="font-size: 18px; font-weight: 800;">{{ job.company | upper }} // {{ job.title }}</div>
+                    <div style="font-size: 12px; opacity: 0.5; margin-bottom: 10px;">{{ job.start_date }} - {{ job.end_date }} | {{ job.location }}</div>
                     <ul class="bullets">{% for b in job.bullets %}{% if b.strip() %}<li>{{ b }}</li>{% endif %}{% endfor %}</ul>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                {% if skills %}
+                <h2>Skillset</h2>
+                <div class="skills-list">{% for s in skills %}<span class="skill-tag">{{ s }}</span>{% endfor %}</div>
+                {% endif %}
+
+                {% if education %}
+                <h2>Education</h2>
+                {% for edu in education %}
+                <div style="margin-bottom: 15px;">
+                    <div style="font-weight: bold;">{{ edu.school }}</div>
+                    <div style="opacity: 0.7;">{{ edu.degree }} ({{ edu.date }})</div>
                 </div>
                 {% endfor %}
                 {% endif %}
@@ -373,31 +498,59 @@ class TemplateEngine:
             {{ css }}
             body { font-family: 'Inter', sans-serif; }
             code { background: #f3f4f6; padding: 2px 4px; border-radius: 4px; font-family: monospace; }
-            h2 { color: #1e40af; border-bottom: 1px solid #d1d5db; }
-            .skill-tag { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+            h2 { color: #1e40af; border-bottom: 1px solid #d1d5db; font-size: 14px; text-transform: uppercase; margin-top: 25px; }
+            .skill-tag { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-weight: 600; }
+            .item-header { font-weight: 800; font-size: 1.1em; color: #111; }
         </style></head>
         <body>
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div><h1 style="margin:0;">{{ header.name }}</h1><p style="font-weight: 500;">{{ header.title }}</p></div>
-                <div style="text-align: right; font-size: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #111; padding-bottom: 15px;">
+                <div><h1 style="margin:0; font-size: 28px;">{{ header.name }}</h1><p style="font-weight: 600; color: #444; font-size: 16px;">{{ header.title }}</p></div>
+                <div style="text-align: right; font-size: 11px; line-height: 1.5; font-family: monospace;">
                     <div>{{ header.github }}</div>
                     <div>{{ header.linkedin }}</div>
                     <div>{{ header.email }}</div>
+                    <div>{{ header.phone }}</div>
                 </div>
             </div>
 
+            {% if summary %}
+            <h2>0x01. Summary</h2>
+            <p style="font-size: 12px; color: #333;">{{ summary }}</p>
+            {% endif %}
+
             {% if skills %}
-            <h2>Technical Inventory</h2>
+            <h2>0x02. Technical Inventory</h2>
             <div class="skills-list">{% for s in skills %}<span class="skill-tag">{{ s }}</span>{% endfor %}</div>
             {% endif %}
 
+            {% if work_history %}
+            <h2>0x03. Professional History</h2>
+            {% for job in work_history %}
+            <div class="section-item">
+                <div class="item-header"><span>{{ job.company }}</span><span style="float: right; font-weight: normal; font-size: 0.8em;">{{ job.start_date }} - {{ job.end_date }}</span></div>
+                <div style="font-weight: 600; color: #666; font-size: 0.9em; margin-bottom: 5px;">{{ job.title }}</div>
+                <ul class="bullets">{% for b in job.bullets %}{% if b.strip() %}<li>{{ b }}</li>{% endif %}{% endfor %}</ul>
+            </div>
+            {% endfor %}
+            {% endif %}
+
             {% if projects %}
-            <h2>Selected Projects</h2>
+            <h2>0x04. Key Projects</h2>
             {% for p in projects %}
             <div class="section-item">
-                <div class="item-header"><span>{{ p.name }}</span><span>{{ p.date }}</span></div>
+                <div class="item-header"><span>{{ p.name }}</span><span style="float: right; font-weight: normal; font-size: 0.8em;">{{ p.date }}</span></div>
                 <div class="item-sub">Role: {{ p.role }}</div>
                 <ul class="bullets">{% for b in p.bullets %}{% if b.strip() %}<li>{{ b }}</li>{% endif %}{% endfor %}</ul>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if education %}
+            <h2>0x05. Education</h2>
+            {% for edu in education %}
+            <div class="section-item" style="margin-bottom: 10px;">
+                <div style="font-weight: 700;">{{ edu.school }}</div>
+                <div style="font-size: 0.9em;">{{ edu.degree }} | {{ edu.date }}</div>
             </div>
             {% endfor %}
             {% endif %}
@@ -408,32 +561,59 @@ class TemplateEngine:
         <html>
         <head><style>
             {{ css }}
-            body { font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.4; color: black; }
-            h1 { text-align: center; text-transform: uppercase; font-size: 20px; border: none; }
-            h2 { text-align: center; font-size: 16px; border-top: 1px solid black; border-bottom: 1px solid black; background: #eee; padding: 2px; }
-            .section-item { margin-bottom: 15px; }
+            body { font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.4; color: black; padding: 40px 60px; }
+            h1 { text-align: center; text-transform: uppercase; font-size: 22px; border: none; margin-bottom: 5px; }
+            h2 { text-align: center; font-size: 16px; border-top: 1px solid black; border-bottom: 1px solid black; background: #f2f2f2; padding: 4px; margin-top: 30px; text-transform: uppercase; letter-spacing: 1px; }
+            .section-item { margin-bottom: 20px; }
+            .item-header { font-weight: bold; border-bottom: 0.5px solid #eee; margin-bottom: 5px; }
         </style></head>
         <body>
             <h1>{{ header.name }}</h1>
-            <p style="text-align: center;">{{ header.location }}<br>{{ header.email }} | {{ header.phone }}</p>
+            <p style="text-align: center; font-size: 12px; margin-bottom: 30px;">
+                {{ header.location }}<br>
+                {{ header.email }} | {{ header.phone }}<br>
+                {{ header.website }}
+            </p>
+
+            {% if summary %}
+            <h2>Research Profile</h2>
+            <p>{{ summary }}</p>
+            {% endif %}
 
             {% if education %}
             <h2>Education</h2>
             {% for edu in education %}
             <div class="section-item">
-                <div class="item-header"><span>{{ edu.school }}</span><span>{{ edu.date }}</span></div>
-                <div class="item-sub">{{ edu.degree }}</div>
+                <div class="item-header"><span>{{ edu.school }}</span><span style="float: right;">{{ edu.date }}</span></div>
+                <div style="font-style: italic;">{{ edu.degree }}</div>
+                {% if edu.location %}<div style="font-size: 0.9em;">{{ edu.location }}</div>{% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if work_history %}
+            <h2>Professional Experience</h2>
+            {% for job in work_history %}
+            <div class="section-item">
+                <div class="item-header"><span>{{ job.company }}</span><span style="float: right;">{{ job.start_date }} - {{ job.end_date }}</span></div>
+                <div style="font-weight: bold; font-size: 0.9em;">{{ job.title }}</div>
+                <ul class="bullets">{% for b in job.bullets %}{% if b.strip() %}<li>{{ b }}</li>{% endif %}{% endfor %}</ul>
             </div>
             {% endfor %}
             {% endif %}
 
             {% if publications %}
-            <h2>Research & Publications</h2>
+            <h2>Publications & Patents</h2>
             <div style="font-size: 13px;">
                 {% for pub in publications %}
-                <div style="margin-bottom: 10px;">{{ pub.authors }} ({{ pub.date }}). "{{ pub.title }}." <i>{{ pub.journal }}</i>.</div>
+                <div style="margin-bottom: 12px; padding-left: 20px; text-indent: -20px;">{{ pub.authors or header.name }} ({{ pub.date }}). "{{ pub.title }}." <i>{{ pub.journal or pub.publisher }}</i>.</div>
                 {% endfor %}
             </div>
+            {% endif %}
+
+            {% if skills %}
+            <h2>Technical Skills</h2>
+            <p>{{ skills | join(', ') }}</p>
             {% endif %}
         </body>
         </html>

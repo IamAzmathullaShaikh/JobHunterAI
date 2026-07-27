@@ -40,19 +40,26 @@ class ScraperManager:
         job_type: str,
     ) -> tuple[str, List[JobListingCreate]]:
         logger.info(f"Running scraper: {scraper.name}")
-        try:
-            # Wrap scraper in a wait_for to ensure it doesn't block forever
-            listings = await asyncio.wait_for(
-                scraper.scrape(search_query, location, limit, job_type),
-                timeout=60.0 # 60s max per scraper
-            )
-            return scraper.name, listings
-        except asyncio.TimeoutError:
-            logger.error(f"{scraper.name} timed out after 60s.")
-            return scraper.name, []
-        except Exception as e:
-            logger.error(f"{scraper.name} failed during execution: {str(e)}")
-            return scraper.name, []
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                # Wrap scraper in a wait_for to ensure it doesn't block forever
+                listings = await asyncio.wait_for(
+                    scraper.scrape(search_query, location, limit, job_type),
+                    timeout=90.0 # Increased from 60s to 90s
+                )
+                return scraper.name, listings
+            except asyncio.TimeoutError:
+                logger.warning(f"{scraper.name} timed out after 90s (Attempt {attempt + 1}).")
+                continue
+            except Exception as e:
+                logger.error(f"{scraper.name} failed during execution: {str(e)} (Attempt {attempt + 1})")
+                if "403" in str(e) or "blocked" in str(e).lower():
+                    # If blocked, no point in immediate retry without delay
+                    await asyncio.sleep(5 * (attempt + 1))
+                continue
+
+        return scraper.name, []
 
     async def run_all(
         self,

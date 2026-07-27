@@ -56,31 +56,20 @@ cloud_find_decision_makers.required_envs = [["APIFY_API_TOKEN", "HUNTER_API_KEY"
 
 # --- Local Fallback ---
 async def local_find_decision_makers(company: str, role: str) -> List[Dict[str, Any]]:
-    """Returns useful LinkedIn/Google search links for manual exploration."""
-    logger.info(f"Local fallback: Generating search leads for {company}")
-
-    q_linkedin = urllib.parse.quote(f'site:linkedin.com/in/ "{company}" "{role}"')
-    q_google = urllib.parse.quote(f'"{company}" "{role}" recruiter email')
+    """Returns a 'No Results' status instead of placeholders if cloud search is unavailable."""
+    logger.info(f"Local fallback: No live decision maker data for {company}")
 
     return [
         {
-            "person_name": f"{role} Lead @ {company}",
-            "title": f"Decision Maker Search",
-            "email": "manual-discovery@required.com",
-            "linkedin_url": f"https://www.linkedin.com/search/results/people/?keywords={q_linkedin}",
-            "source": "local_search_engine",
-            "confidence_score": 0.5,
-            "match_explanation": "Search LinkedIn directly for current decision makers."
-        },
-        {
-            "person_name": f"{company} Talent Team",
-            "title": "Recruitment Search",
-            "email": "search-google@required.com",
-            "linkedin_url": f"https://www.google.com/search?q={q_google}",
-            "source": "local_search_engine",
-            "confidence_score": 0.4,
-            "match_explanation": "Search Google for public contact details."
-        },
+            "person_name": "No direct contacts found",
+            "title": "Search incomplete",
+            "email": "Try providing Hunter.io or Apify API keys",
+            "type": "error_card",
+            "linkedin_url": f"https://www.linkedin.com/search/results/people/?keywords={urllib.parse.quote(company + ' ' + role)}",
+            "desc": "The local engine cannot find validated contacts without a cloud enrichment provider.",
+            "source": "system_validation",
+            "confidence_score": 0.0,
+        }
     ]
 
 

@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -172,18 +173,27 @@ async def export_cover_letter(
     if not content:
         raise HTTPException(status_code=400, detail="Cover letter content is required for export")
 
+    # For previews/direct rendering
     if format == "html":
         html = template_engine.render_cover_letter_to_html(content, template_id)
         return {"success": True, "data": html}
 
     # PDF generation logic
     if format == "pdf":
-        output_path = f"cl_export_{hash(str(content))}.pdf"
-        await template_engine.export_pdf_cover_letter(content, template_id, output_path)
-        return {"success": True, "download_url": f"/api/resumes/download/{output_path}"}
+        # Use a consistent naming scheme for the output file
+        # Avoid using hash(str(content)) which can be negative or inconsistent across runs
+        import hashlib
+        content_hash = hashlib.md5(str(content).encode()).hexdigest()[:10]
+        output_filename = f"cl_export_{content_hash}.pdf"
+
+        try:
+            await template_engine.export_pdf_cover_letter(content, template_id, output_filename)
+            return {"success": True, "download_url": f"/api/resumes/download/{output_filename}"}
+        except Exception as e:
+            logger.error(f"CL PDF export failed: {e}")
+            raise HTTPException(status_code=500, detail="Failed to generate PDF.")
 
     if format == "markdown":
-        # We need a render_cover_letter_to_markdown in template_engine
         return {"success": True, "data": template_engine.render_cover_letter_to_markdown(content)}
 
     return {"success": False, "error": "Format not supported"}

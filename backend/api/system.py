@@ -14,7 +14,7 @@ async def telemetry():
     return {
         "status": "ok",
         "message": "System telemetry active",
-        "env": settings.NODE_ENV,
+        "env": settings.ENVIRONMENT,
     }
 
 

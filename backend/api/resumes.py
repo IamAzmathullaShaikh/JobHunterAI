@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -187,19 +188,23 @@ async def restore_resume(
 
 @router.get("/download/{filename}")
 async def download_resume(filename: str):
-    """Serves exported resume files."""
-    # Ensure it's a valid filename to prevent path traversal
+    """Serves exported resume/CL files securely."""
+    # Strict validation to prevent path traversal
+    if not filename.startswith("export_") and not filename.startswith("cl_export_"):
+        raise HTTPException(status_code=400, detail="Invalid file access")
+
     if ".." in filename or "/" in filename or "\\" in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename")
+        raise HTTPException(status_code=400, detail="Invalid path components")
 
     from fastapi.responses import FileResponse
 
-    # Files are currently saved in the current working directory by template_engine
-    if not os.path.exists(filename):
-        raise HTTPException(status_code=404, detail="File not found")
+    # Files are saved in the working directory root by the engine
+    file_path = filename
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"File '{filename}' no longer exists on the server.")
 
     return FileResponse(
-        filename,
+        file_path,
         filename=filename,
         media_type="application/octet-stream"
     )

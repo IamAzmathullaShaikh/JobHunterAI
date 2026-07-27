@@ -38,22 +38,26 @@ class ApifyJobScraper(BaseScraper):
             f"Dispatching Apify Cloud Actor for Query: '{search_query}' in '{target_location}'"
         )
 
-        jobs: List[JobListingCreate] = []
         client = ApifyClientAsync(token=token)
 
-        # Format search URL for curious_coder/linkedin-jobs-scraper
-        search_url = f"https://www.linkedin.com/jobs/search/?keywords={quote(search_query)}&location={quote(target_location)}"
+        # Use the actor configured in settings for maximum flexibility
+        actor_id = settings.APIFY_ACTOR_ID or "apify/google-jobs-scraper"
 
-        # Enforce actor requirement: input.count must be >= 10
-        actor_count = max(limit, 10)
-
-        run_input = {"urls": [search_url], "count": actor_count}
+        # Determine input based on actor type
+        if "google-jobs" in actor_id:
+            run_input = {
+                "queries": search_query,
+                "maxPagesPerQuery": 1,
+                "maxResultsPerQuery": limit
+            }
+        else:
+            # Fallback for generic scrapers
+            search_url = f"https://www.linkedin.com/jobs/search/?keywords={quote(search_query)}&location={quote(target_location)}"
+            run_input = {"urls": [search_url], "count": max(limit, 10)}
 
         try:
-            # Invoking Apify's curious_coder/linkedin-jobs-scraper actor
-            run = await client.actor("curious_coder/linkedin-jobs-scraper").call(
-                run_input=run_input
-            )
+            log.info(f"Invoking Apify Actor: {actor_id}")
+            run = await client.actor(actor_id).call(run_input=run_input)
 
             # Safely extract default_dataset_id from SDK ActorRun object or dict
             dataset_id = None
