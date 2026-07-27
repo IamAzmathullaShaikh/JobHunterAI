@@ -134,15 +134,25 @@ export default function CoverLetterBuilder({ resumes, jobs, profile }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: `Letter for ${company}`,
-            content: result.data,
+            content: {
+              ...result.data,
+              header: {
+                name: profile?.full_name || "",
+                email: profile?.email || "",
+                phone: profile?.phone || "",
+                location: profile?.location || ""
+              }
+            },
             resume_id: selectedResumeId,
             writing_style: style
           })
         });
         const newCL = await createRes.json();
-        setCoverLetters(prev => [newCL, ...prev]);
-        setActiveCL(newCL);
-        setViewMode("edit");
+        if (newCL && newCL.id) {
+            setCoverLetters(prev => [newCL, ...prev]);
+            setActiveCL(newCL);
+            setViewMode("edit");
+        }
       }
     } catch (err) { console.error(err); }
     finally { setIsGenerating(false); }
@@ -155,7 +165,11 @@ export default function CoverLetterBuilder({ resumes, jobs, profile }: Props) {
       const response = await fetch("/api/cover-letter/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ format, content: activeCL.content })
+        body: JSON.stringify({
+          format,
+          content: activeCL.content,
+          template_id: activeCL.template_id || "cover_letter_standard"
+        })
       });
       const data = await response.json();
       if (data.success) {
@@ -395,7 +409,11 @@ function CLPreview({ content }: { content: CoverLetterContent }) {
         const response = await fetch("/api/cover-letter/export", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ format: "html", content })
+          body: JSON.stringify({
+            format: "html",
+            content,
+            template_id: "cover_letter_standard"
+          })
         });
         const data = await response.json();
         setHtml(data.data);

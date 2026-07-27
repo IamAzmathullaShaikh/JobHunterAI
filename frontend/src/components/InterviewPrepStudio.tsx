@@ -23,7 +23,7 @@ export default function InterviewPrepStudio({ resumes, jobs }: Props) {
 
   // Setup form states
   const [selectedResumeId, setSelectedResumeId] = useState<number | "">("");
-  const [selectedJobId, setSelectedJobId] = useState<number | "">("");
+  const [selectedJobId, setSelectedJobId] = useState<any>("");
   const [difficulty, setDifficulty] = useState("Senior");
 
   useEffect(() => {
@@ -41,13 +41,17 @@ export default function InterviewPrepStudio({ resumes, jobs }: Props) {
     if (!selectedResumeId) return;
     setIsGenerating(true);
     try {
+      const selectedJob = jobs.find(j => j.id === selectedJobId);
+      const isManual = typeof selectedJobId === 'string' && selectedJobId.startsWith('app-');
+
       const response = await fetch("/api/interview/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: `Interview Prep - ${difficulty}`,
+          name: `Prep: ${selectedJob?.title || difficulty}`,
           resume_id: selectedResumeId,
-          job_id: selectedJobId || null,
+          job_id: isManual ? null : selectedJobId,
+          job_description: isManual ? selectedJob?.description_raw : null,
           difficulty
         })
       });
@@ -222,11 +226,14 @@ export default function InterviewPrepStudio({ resumes, jobs }: Props) {
                         <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Target Job</label>
                         <select
                           value={selectedJobId}
-                          onChange={e => setSelectedJobId(Number(e.target.value))}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setSelectedJobId(val.startsWith('app-') ? val : Number(val));
+                          }}
                           className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-indigo-500"
                         >
-                          <option value="">Choose from board...</option>
-                          {jobs.map(j => <option key={j.id} value={j.id}>{j.title} at {j.company_name}</option>)}
+                          <option value="">{jobs.length > 0 ? "Choose from your board..." : "No jobs found. Find jobs in Job Board first."}</option>
+                          {jobs.map(j => <option key={j.id} value={j.id}>{j.title} @ {j.company_name}</option>)}
                         </select>
                       </div>
                    </div>

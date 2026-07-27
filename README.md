@@ -107,6 +107,16 @@ python backend/main.py
 
 ---
 
+## 🗺️ SaaS Roadmap & Future Vision
+
+JobHunterAI is evolving from a local power-user tool into a comprehensive enterprise SaaS platform.
+
+- **v1.0 (Current)**: Hardened production-ready local ecosystem with 3-tier AI routing.
+- **v2.0 (Target)**: Multi-tenant SaaS with JWT authentication, distributed worker queues (Redis/Celery), and Stripe billing integration.
+- **v3.0 (Vision)**: Multi-agent orchestration for autonomous job application management and voice-based AI interview coaching.
+
+---
+
 ## 🛠 Technology Stack
 
 - **Backend**: FastAPI, SQLAlchemy 2.0, Pydantic, Alembic

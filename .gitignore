@@ -91,3 +91,17 @@ desktop.ini
 # Project Specific
 metadata.json
 release_manifest.json.bak
+export_*.pdf
+export_*.docx
+cl_export_*.pdf
+interview_export_*.pdf
+data/
+!data/.gitkeep
+!docs/**/*.md
+!README.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!LICENSE
+!SECURITY.md
+!SUPPORT.md
+!ROADMAP.md

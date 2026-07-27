@@ -141,6 +141,7 @@ class JobApplication(Base):
     __tablename__ = "job_applications"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[UUID]] = mapped_column(String(36), nullable=True, index=True)
     job_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("job_listings.id", ondelete="SET NULL"), unique=True, nullable=True
     )
@@ -447,6 +448,7 @@ class Resume(Base):
     __tablename__ = "resumes"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[UUID]] = mapped_column(String(36), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     template_id: Mapped[str] = mapped_column(String(50), default="classic_ats")
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -496,6 +498,7 @@ class CoverLetter(Base):
     __tablename__ = "cover_letters"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[UUID]] = mapped_column(String(36), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     template_id: Mapped[str] = mapped_column(String(50), default="classic_ats")
     writing_style: Mapped[str] = mapped_column(String(50), default="Professional")
@@ -530,6 +533,7 @@ class InterviewSession(Base):
     __tablename__ = "interview_sessions"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[UUID]] = mapped_column(String(36), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     difficulty: Mapped[str] = mapped_column(String(50), default="Senior")
     status: Mapped[str] = mapped_column(String(50), default="Setup")  # Setup, In-Progress, Completed

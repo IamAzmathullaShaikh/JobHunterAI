@@ -163,10 +163,14 @@ class SmartLLMClient(LLMClient):
             target_model = model or client.get_model_for_capability(Capability.REASONING)
             return await client.chat_completion(target_model, messages)
 
+        try_primary.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
+
         async def try_fallback():
             client = get_llm_client(settings.FALLBACK_AI_PROVIDER)
             target_model = model or client.get_model_for_capability(Capability.REASONING)
             return await client.chat_completion(target_model, messages)
+
+        try_fallback.required_envs = [["GEMINI_API_KEY", "OPENROUTER_API_KEY"]]
 
         # Route uses Smart Router logic for Tier 1 -> Tier 3
         # Here we adapt it for DEFAULT -> FALLBACK

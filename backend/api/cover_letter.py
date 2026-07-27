@@ -77,10 +77,36 @@ async def create_cover_letter(
     request: CoverLetterCreateRequest, job_service: JobService = Depends(get_job_service)
 ):
     db = job_service.session
+    content_dict = request.content.model_dump()
+
+    # Auto-sync header from linked resume OR Master Profile if missing in content
+    if not content_dict.get("header") or not content_dict["header"].get("name"):
+        header_source = None
+        if request.resume_id:
+            resume = await db.get(Resume, request.resume_id)
+            if resume:
+                header_source = resume.content.get("header")
+
+        if not header_source:
+             # Fallback to master profile
+             profile_stmt = select(ResumeProfile).order_by(ResumeProfile.updated_at.desc()).limit(1)
+             profile_res = await db.execute(profile_stmt)
+             profile = profile_res.scalar_one_or_none()
+             if profile:
+                 header_source = {
+                     "name": profile.full_name,
+                     "email": profile.email,
+                     "phone": profile.phone,
+                     "location": profile.location
+                 }
+
+        if header_source:
+            content_dict["header"] = header_source
+
     new_cl = CoverLetter(
         name=request.name,
         template_id=request.template_id,
-        content=request.content.model_dump(),
+        content=content_dict,
         resume_id=request.resume_id,
         job_id=request.job_id,
         writing_style=request.writing_style,
@@ -167,10 +193,23 @@ async def export_cover_letter(
     job_service: JobService = Depends(get_job_service),
 ):
     format = request.format
-    content = request.content.model_dump() if request.content else None
+    content_dict = request.content.model_dump() if request.content else {}
     template_id = request.template_id
 
-    if not content:
+    # Fallback to master profile if header is missing
+    if not content_dict.get("header"):
+        stmt = select(ResumeProfile).order_by(ResumeProfile.updated_at.desc()).limit(1)
+        res = await job_service.session.execute(stmt)
+        profile = res.scalar_one_or_none()
+        if profile:
+            content_dict["header"] = {
+                "name": profile.full_name,
+                "email": profile.email,
+                "phone": profile.phone,
+                "location": profile.location
+            }
+
+    if not content_dict:
         raise HTTPException(status_code=400, detail="Cover letter content is required for export")
 
     # For previews/direct rendering

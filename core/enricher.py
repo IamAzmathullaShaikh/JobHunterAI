@@ -56,19 +56,34 @@ cloud_find_decision_makers.required_envs = [["APIFY_API_TOKEN", "HUNTER_API_KEY"
 
 # --- Local Fallback ---
 async def local_find_decision_makers(company: str, role: str) -> List[Dict[str, Any]]:
-    """Returns a 'No Results' status instead of placeholders if cloud search is unavailable."""
-    logger.info(f"Local fallback: No live decision maker data for {company}")
+    """Returns useful LinkedIn/Google search links for manual exploration when cloud keys are missing."""
+    logger.info(f"Local fallback: Providing discovery vectors for {company}")
+
+    q_linkedin = urllib.parse.quote(f'site:linkedin.com/in/ "{company}" "{role}"')
+    q_google = urllib.parse.quote(f'"{company}" "{role}" recruiter email')
 
     return [
         {
-            "person_name": "No direct contacts found",
-            "title": "Search incomplete",
-            "email": "Try providing Hunter.io or Apify API keys",
-            "type": "error_card",
-            "linkedin_url": f"https://www.linkedin.com/search/results/people/?keywords={urllib.parse.quote(company + ' ' + role)}",
-            "desc": "The local engine cannot find validated contacts without a cloud enrichment provider.",
-            "source": "system_validation",
-            "confidence_score": 0.0,
+            "person_name": f"{role} Search (LinkedIn)",
+            "title": "Manual Discovery",
+            "email": "key-required@hunter.io",
+            "type": "discovery_card",
+            "linkedin_url": f"https://www.google.com/search?q={q_linkedin}",
+            "desc": "Use Google X-Ray to find hiring managers directly on LinkedIn.",
+            "source": "local_vectors",
+            "confidence_score": 0.5,
+            "match_explanation": "Recommended: Provide an Apify or Hunter.io key for automated contact extraction."
+        },
+        {
+            "person_name": f"{company} Talent Search",
+            "title": "Public Directory",
+            "email": "key-required@apify.com",
+            "type": "discovery_card",
+            "linkedin_url": f"https://www.google.com/search?q={q_google}",
+            "desc": "Search for public email patterns and recruiter directories.",
+            "source": "local_vectors",
+            "confidence_score": 0.4,
+            "match_explanation": "Automated enrichment is currently disabled due to missing API keys."
         }
     ]
 

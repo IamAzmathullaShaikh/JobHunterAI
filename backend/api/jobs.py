@@ -48,10 +48,11 @@ async def get_jobs(
     search: Optional[str] = None,
     company: Optional[str] = None,
     seniority: Optional[str] = None,
+    mode: str = "scraped", # "scraped" or "all"
     job_service: JobService = Depends(get_job_service),
 ):
+    # 1. Fetch Scraped Jobs
     stmt = select(JobListing)
-
     if search:
         stmt = stmt.where(JobListing.title.ilike(f"%{search}%"))
     if company:
@@ -62,6 +63,30 @@ async def get_jobs(
     stmt = stmt.order_by(JobListing.date_scraped.desc()).limit(limit).offset(offset)
     result = await job_service.session.execute(stmt)
     jobs = result.scalars().all()
+
+    if mode == "all":
+        # 2. Fetch Manual Applications to merge
+        from core.database.models import JobApplication
+        app_stmt = select(JobApplication).where(JobApplication.job_id == None)
+        app_res = await job_service.session.execute(app_stmt)
+        manual_apps = app_res.scalars().all()
+
+        # Convert manual apps to job-like structure for UI consistency
+        for app in manual_apps:
+            # Check if already added via search
+            if not any(j.title == app.job_title and j.company_name == app.company_name for j in jobs):
+                jobs.append({
+                    "id": f"app-{app.id}", # Virtual ID for UI
+                    "title": app.job_title,
+                    "company_name": app.company_name,
+                    "location": app.location,
+                    "source": app.platform,
+                    "url": app.job_url or "#",
+                    "application": app,
+                    "date_scraped": app.date_created,
+                    "description_raw": app.notes or "Manual entry."
+                })
+
     return {"jobs": jobs}
 
 

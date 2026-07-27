@@ -73,7 +73,7 @@ function Dashboard() {
       try {
         const responses = await Promise.allSettled([
           fetch("/api/profile"),
-          fetch("/api/jobs"),
+          fetch("/api/jobs?mode=all"),
           fetch("/api/resumes"),
           fetch("/api/system/telemetry")
         ]);

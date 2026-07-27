@@ -105,28 +105,45 @@ class JobService:
             all_existing
         )
 
-        # 2. Parallel Enrichment
+        # 2. Parallel Enrichment with Semaphore and Error Boundaries
         logger.info(f"Enriching {len(unique_raw)} unique listings...")
+        semaphore = asyncio.Semaphore(2) # Strict limit to prevent API rate limits
 
         async def enrich_and_map(item_dict: dict):
-            enriched_data = await enrichment_engine.enrich_job(item_dict.get("description_raw", ""))
-            return JobListing(
-                job_id_raw=item_dict.get("job_id_raw"),
-                title=item_dict.get("title"),
-                company_name=item_dict.get("company_name"),
-                location=item_dict.get("location"),
-                work_place_type=enriched_data.get("work_model") or item_dict.get("work_place_type"),
-                job_type=item_dict.get("job_type"),
-                source=item_dict.get("source"),
-                url=item_dict.get("url"),
-                description_raw=item_dict.get("description_raw"),
-                description_clean=item_dict.get("description_clean"),
-                # New fields
-                required_skills=enriched_data.get("required_skills"),
-                seniority=enriched_data.get("seniority"),
-                technologies=enriched_data.get("technologies"),
-                benefits=enriched_data.get("benefits"),
-            )
+            async with semaphore:
+                try:
+                    enriched_data = await enrichment_engine.enrich_job(item_dict.get("description_raw", ""))
+                    return JobListing(
+                        job_id_raw=item_dict.get("job_id_raw"),
+                        title=item_dict.get("title"),
+                        company_name=item_dict.get("company_name"),
+                        location=item_dict.get("location"),
+                        work_place_type=enriched_data.get("work_model") or item_dict.get("work_place_type"),
+                        job_type=item_dict.get("job_type"),
+                        source=item_dict.get("source"),
+                        url=item_dict.get("url"),
+                        description_raw=item_dict.get("description_raw"),
+                        description_clean=item_dict.get("description_clean"),
+                        # New fields
+                        required_skills=enriched_data.get("required_skills"),
+                        seniority=enriched_data.get("seniority"),
+                        technologies=enriched_data.get("technologies"),
+                        benefits=enriched_data.get("benefits"),
+                    )
+                except Exception as e:
+                    logger.warning(f"Enrichment failed for '{item_dict.get('title')}': {e}. Saving with raw data.")
+                    return JobListing(
+                        job_id_raw=item_dict.get("job_id_raw"),
+                        title=item_dict.get("title"),
+                        company_name=item_dict.get("company_name"),
+                        location=item_dict.get("location"),
+                        work_place_type=item_dict.get("work_place_type"),
+                        job_type=item_dict.get("job_type"),
+                        source=item_dict.get("source"),
+                        url=item_dict.get("url"),
+                        description_raw=item_dict.get("description_raw"),
+                        description_clean=item_dict.get("description_clean"),
+                    )
 
         enrichment_tasks = [enrich_and_map(item) for item in unique_raw]
         unique_new_models = await asyncio.gather(*enrichment_tasks)

@@ -39,7 +39,11 @@ JobHunterAI is built on a clean, layered architecture inspired by Domain-Driven 
 5. The selected AI model processes the context and returns structured data.
 6. The state is persisted in the DB and synced to the UI.
 
-## 3. Resilience Patterns
-- **Capability Routing**: Removing hardcoded model dependencies.
-- **Circuit Breakers**: Graceful fallback to secondary providers on failure.
-- **Provider Fallback**: Automatic Tier 1 -> Tier 2 -> Tier 3 transition.
+## 4. Future Scalability (v2.0+)
+
+To support thousands of concurrent users, the architecture will transition to an **Event-Driven Microservices** model:
+
+- **Distributed Workers**: Scrapers and complex AI reasoning will be moved to **Celery** workers. This prevents long-running HTTP requests from blocking the API.
+- **Message Broker**: **Redis** or **RabbitMQ** will be introduced to handle task queuing and inter-service communication.
+- **Stateless API**: The FastAPI service will become completely stateless, with session management handled via JWT and distributed caching.
+- **Relational Scaling**: The Data Layer will migrate to **PostgreSQL** with Read Replicas and a dedicated caching layer for resume metadata.

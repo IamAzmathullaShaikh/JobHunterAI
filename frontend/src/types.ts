@@ -63,6 +63,9 @@ export interface JobApplication {
 
 export interface CandidateProfile {
   full_name: string;
+  email?: string;
+  phone?: string;
+  location?: string;
   total_experience_years: number;
   education: string[];
   key_skills: string[];
@@ -138,6 +141,7 @@ export interface Resume {
 // --- Cover Letter System ---
 
 export interface CoverLetterContent {
+  header: ResumeHeader;
   salutation: string;
   opening: string;
   why_us: string;

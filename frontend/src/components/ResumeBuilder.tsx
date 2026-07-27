@@ -111,14 +111,25 @@ export default function ResumeBuilder({ profile }: ResumeBuilderProps) {
   };
 
   const createNewResume = async () => {
-    const name = `Resume ${resumes.length + 1}`;
+    const defaultName = `Resume ${resumes.length + 1}`;
+
     // Seed with profile if available
     const content = profile ? {
       ...DEFAULT_CONTENT,
-      header: { ...DEFAULT_CONTENT.header, name: profile.full_name, title: profile.recommended_search_queries[0] || "" },
-      skills: profile.key_skills,
-      work_history: profile.experience_highlights.map(h => ({
-          company: "Company", title: profile.recommended_search_queries[0] || "Role",
+      header: {
+        name: profile.full_name || "",
+        title: (profile.recommended_search_queries && profile.recommended_search_queries[0]) || "Software Engineer",
+        email: profile.email || "",
+        phone: profile.phone || "",
+        location: profile.location || "",
+        linkedin: (profile.recommended_search_queries || []).find(l => l.toLowerCase().includes("linkedin")) || "",
+        github: "",
+        website: ""
+      },
+      skills: profile.key_skills || [],
+      work_history: (profile.experience_highlights || []).map(h => ({
+          company: "Company",
+          title: (profile.recommended_search_queries && profile.recommended_search_queries[0]) || "Software Engineer",
           location: "Remote", start_date: "2020", end_date: "Present",
           bullets: [h]
       }))
@@ -128,7 +139,7 @@ export default function ResumeBuilder({ profile }: ResumeBuilderProps) {
       const response = await fetch("/api/resumes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, content })
+        body: JSON.stringify({ name: defaultName, content })
       });
       const data = await response.json();
       setResumes(prev => [data, ...prev]);

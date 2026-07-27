@@ -78,8 +78,28 @@ async def create_resume(
     request: ResumeCreateRequest, job_service: JobService = Depends(get_job_service)
 ):
     db = job_service.session
+
+    # Smart Naming: Try to use candidate name and role from content
+    name = request.name
+    if not name or name.lower().startswith("resume"):
+        header = request.content.header
+        candidate_name = header.get("name", "").split(" ")[0]
+        title = header.get("title", "").strip()
+        if not title:
+            # Try to get from most recent job
+            work = request.content.work_history
+            if work:
+                title = work[0].get("title", "")
+
+        if candidate_name and title:
+            name = f"{candidate_name} - {title} Resume"
+        elif candidate_name:
+            name = f"{candidate_name}'s Resume"
+        elif title:
+            name = f"{title} Resume"
+
     new_resume = Resume(
-        name=request.name,
+        name=name,
         template_id=request.template_id,
         content=request.content.model_dump(),
         job_id=request.job_id,
@@ -257,22 +277,27 @@ async def export_resume_api(
         profile_dict = {
             "header": {
                 "name": profile.full_name,
+                "title": (profile.recommended_search_queries[0] if profile.recommended_search_queries else "") or "Professional",
                 "email": profile.email,
                 "phone": profile.phone,
                 "location": profile.location,
+                "linkedin": next((link for link in (profile.recommended_search_queries or []) if "linkedin" in link.lower()), ""),
+                "github": "", # Could be extracted from profile if added later
+                "website": ""
             },
             "summary": profile.summary,
             "work_history": [
                 {
                     "company": j.get("company", "Unknown"),
                     "title": j.get("title", "Role"),
+                    "location": j.get("location", "Remote"),
                     "start_date": j.get("start_date", ""),
                     "end_date": j.get("end_date", ""),
                     "bullets": j.get("bullets", [])
                 } for j in (profile.work_history or [])
             ],
             "education": profile.education or [],
-            "skills": profile.skills or [],
+            "skills": profile.key_skills or [],
             "projects": profile.projects or [],
             "certifications": profile.certifications or []
         }
