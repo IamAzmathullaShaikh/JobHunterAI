@@ -5,14 +5,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
 from core.database.models import CoverLetter, Resume
-from core.dependencies import get_job_service, get_task_engine
+from core.dependencies import get_job_service, get_resume_service, get_generator_service
 from core.schemas.api_payloads import (CoverLetterContent,
                                        CoverLetterCreateRequest,
                                        CoverLetterGenerateRequest,
                                        CoverLetterSectionRegenerateRequest,
-                                       CoverLetterUpdateRequest)
+                                       CoverLetterUpdateRequest,
+                                       CoverLetterExportRequest)
 from core.services.job_service import JobService
-from core.task_engine import TaskEngine
+from core.services.resume_service import ResumeService
+from core.services.generator_service import GeneratorService
 from core.template_engine import template_engine
 
 router = APIRouter(prefix="/api/cover-letter", tags=["cover-letter"])
@@ -30,15 +32,14 @@ async def list_cover_letters(job_service: JobService = Depends(get_job_service))
 async def generate_cover_letter(
     request: CoverLetterGenerateRequest,
     job_service: JobService = Depends(get_job_service),
-    engine: TaskEngine = Depends(get_task_engine),
+    service: GeneratorService = Depends(get_generator_service),
 ):
     db = job_service.session
     resume = await db.get(Resume, request.resume_id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
 
-    # Call TaskEngine to generate structured content
-    result = await engine.generate_cover_letter_structured(
+    result = await service.generate_cover_letter_structured(
         resume_content=resume.content,
         job_description=request.job_description,
         writing_style=request.writing_style,
@@ -55,14 +56,14 @@ async def generate_cover_letter(
 async def regenerate_section(
     request: CoverLetterSectionRegenerateRequest,
     job_service: JobService = Depends(get_job_service),
-    engine: TaskEngine = Depends(get_task_engine),
+    service: GeneratorService = Depends(get_generator_service),
 ):
     db = job_service.session
     resume = await db.get(Resume, request.resume_id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
 
-    result = await engine.regenerate_cl_section(
+    result = await service.regenerate_cl_section(
         section_id=request.section_id,
         resume_content=resume.content,
         job_description=request.job_description,

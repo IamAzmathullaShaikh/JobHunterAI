@@ -17,18 +17,26 @@ class DeduplicationEngine:
     def are_duplicates(self, job1: dict, job2: dict, threshold: float = 0.85) -> bool:
         """
         Heuristic-based duplicate detection.
+        Hardens company name matching to handle "Google" vs "Google LLC".
         """
         # 1. Exact ID Match
         if job1.get("job_id_raw") and job1.get("job_id_raw") == job2.get("job_id_raw"):
             return True
 
         # 2. Title + Company Normalized Match
-        t1, c1 = self._normalize(job1.get("title")), self._normalize(job1.get("company_name"))
-        t2, c2 = self._normalize(job2.get("title")), self._normalize(job2.get("company_name"))
+        t1 = self._normalize(job1.get("title"))
+        t2 = self._normalize(job2.get("title"))
 
-        if t1 == t2 and c1 == c2:
+        c1 = self._normalize(job1.get("company_name"))
+        c2 = self._normalize(job2.get("company_name"))
+
+        # Handle variations: "Google LLC" starts with "Google"
+        company_match = c1 == c2 or (c1 and c2 and (c1.startswith(c2) or c2.startswith(c1)))
+
+        if t1 == t2 and company_match:
             # Further check location if possible
-            l1, l2 = self._normalize(job1.get("location")), self._normalize(job2.get("location"))
+            l1 = self._normalize(job1.get("location"))
+            l2 = self._normalize(job2.get("location"))
             if not l1 or not l2 or l1 == l2:
                 return True
 

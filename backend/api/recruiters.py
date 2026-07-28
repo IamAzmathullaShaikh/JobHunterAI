@@ -5,14 +5,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
 from core.database.models import RecruiterContact, Resume
-from core.dependencies import get_enricher, get_job_service, get_task_engine
+from core.dependencies import get_enricher, get_job_service, get_generator_service
 from core.enricher import Enricher
 from core.schemas.api_payloads import (OutreachGenerateRequest,
                                        RecruiterContactCreate,
                                        RecruiterSearchRequest,
                                        RecruiterStatusUpdate)
 from core.services.job_service import JobService
-from core.task_engine import TaskEngine
+from core.services.generator_service import GeneratorService
 
 router = APIRouter(prefix="/api/recruiters", tags=["recruiters"])
 
@@ -154,7 +154,7 @@ async def export_crm(
 async def generate_outreach(
     request: OutreachGenerateRequest,
     job_service: JobService = Depends(get_job_service),
-    engine: TaskEngine = Depends(get_task_engine),
+    service: GeneratorService = Depends(get_generator_service),
 ):
     db = job_service.session
     contact = await db.get(RecruiterContact, request.recruiter_id)
@@ -165,8 +165,8 @@ async def generate_outreach(
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
 
-    # Call AI TaskEngine with rich context
-    result = await engine.generate_recruiter_outreach(
+    # Call specialized GeneratorService
+    result = await service.generate_recruiter_outreach(
         recruiter_name=contact.name,
         recruiter_title=contact.title,
         company_name=contact.company,

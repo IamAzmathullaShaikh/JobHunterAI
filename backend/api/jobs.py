@@ -7,14 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database.connection import get_db_session
 from core.database.models import (AIAnalysis, ApplicationStatus,
                                   JobApplication, JobListing, SavedSearch)
-from core.dependencies import get_job_service, get_task_engine
+from core.dependencies import get_job_service, get_resume_service
 from core.schemas.api_payloads import (JobAnalysisRequest, ResumeParseRequest,
                                        SavedSearchCreate, ScrapeRequest,
                                        TrackJobRequest)
 from core.schemas.job_listing import JobListingRead
 from core.scraper import scrape_jobs
 from core.services.job_service import JobService
-from core.task_engine import TaskEngine
+from core.services.resume_service import ResumeService
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -127,17 +127,16 @@ async def delete_saved_search(
 
 
 @router.post("/search-all")
-async def search_all_platforms(request: ScrapeRequest):
-    payload = request.model_dump(by_alias=True)
-    from core.scraper_engine import scraper_engine
-
-    results = await scraper_engine.search_all(
-        payload.get("query"),
-        payload.get("location"),
-        payload.get("limit"),
-        [],  # platforms
+async def search_all_platforms(
+    request: ScrapeRequest,
+    job_service: JobService = Depends(get_job_service)
+):
+    results = await job_service.search_live(
+        query=request.search_query,
+        location=request.location,
+        limit=request.limit
     )
-    return results
+    return {"source": "jobspy", "data": results}
 
 
 @router.post("/track")
@@ -167,7 +166,7 @@ async def track_job(
 async def analyze_job(
     request: JobAnalysisRequest,
     job_service: JobService = Depends(get_job_service),
-    engine: TaskEngine = Depends(get_task_engine),
+    service: ResumeService = Depends(get_resume_service),
 ):
     db = job_service.session
     stmt = select(JobListing).where(JobListing.id == request.job_id)
@@ -177,8 +176,8 @@ async def analyze_job(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
 
-    # Use the unified TaskEngine which includes Caching, Truncation, and Smart Routing
-    analysis_result = await engine.analyze_ats_fit(
+    # Use the decoupled ResumeService
+    analysis_result = await service.analyze_fit(
         request.resume_text, job.description_raw or job.title
     )
 

@@ -8,17 +8,24 @@
 
 **JobHunterAI** is a production-grade, local-first ecosystem designed to automate the modern job search. By leveraging a high-performance Python backend with a multi-tier AI fallback router and a modern React frontend, it provides job seekers with enterprise-level tools for resume optimization, job discovery, and application tracking.
 
----
+## 🏗 Architecture Overview (Production Certified)
 
-## 🏗 Architecture Overview
+JobHunterAI has transitioned to a fully **Decoupled Service Model** for maximum maintainability.
 
-JobHunterAI follows a clean, modular architecture designed for resilience and privacy.
+### Core Domain Services
+- **ResumeService**: Logic for ATS matching, tailoring, and high-fidelity parsing.
+- **InterviewService**: Dedicated service for contextual question generation and behavioral STAR feedback.
+- **JobService**: Live multi-platform discovery and enrichment fleet.
+- **GeneratorService**: Optimized for document drafting (Cover Letters, Outreach).
 
-### AI Multi-Tier Routing
-The system implements a verified **3-Tier Routing** logic:
+### AI Multi-Tier Routing (N-Tier)
+The system implements a verified **N-Tier Routing** logic:
 1.  **Tier 1 (Groq)**: Ultra-fast Llama 3.3 for real-time tailoring.
 2.  **Tier 2 (Gemini)**: High-reasoning 1.5 Flash for complex context.
-3.  **Tier 3 (Local)**: Sentence-Transformers or Ollama for privacy and offline fallback.
+3.  **Tier 3 (Local)**: Sentence-Transformers or Ollama for absolute privacy and offline fallback.
+
+### Dynamic Scraper Fleet 2.0
+Utilizes a YAML-based registry (`config/apify_actors.yaml`) to orchestrate a parallel fleet of scrapers (LinkedIn, Indeed, Google Jobs) with automated health monitoring and priority selection.
 
 ### Dynamic Scraper Registry
 Utilizes a YAML-based registry (`config/apify_actors.yaml`) to manage a fleet of Apify actors (LinkedIn, Indeed, Google Jobs) with automated health monitoring and priority-based selection.

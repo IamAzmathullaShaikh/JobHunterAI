@@ -21,14 +21,10 @@ from core.scrapers.yc_jobs import YCJobsScraper
 class ScraperManager:
     def __init__(self, session: AsyncSession = None):
         self.session = session
-        # Active engines: only those that reliably return real postings.
-        # Indeed / Naukri / Foundit / Google Jobs / Internshala / YC Jobs are
-        # kept importable but disabled here because they get blocked or return
-        # empty in practice. Add them back to this list to re-enable.
-        self.default_scrapers: List[BaseScraper] = [
+        # Standard local/stealth scrapers
+        self.stealth_scrapers: List[BaseScraper] = [
             LinkedInScraper(),
             GlassdoorScraper(),
-            ApifyJobScraper(),  # requires APIFY_API_TOKEN in .env, else returns empty
         ]
 
     async def _run_scraper(
@@ -40,23 +36,16 @@ class ScraperManager:
         job_type: str,
     ) -> tuple[str, List[JobListingCreate]]:
         logger.info(f"Running scraper: {scraper.name}")
-        max_retries = 2
-        for attempt in range(max_retries):
+        max_retries = 1 # Fleet mode has lower retries to keep it fast
+        for attempt in range(max_retries + 1):
             try:
-                # Wrap scraper in a wait_for to ensure it doesn't block forever
                 listings = await asyncio.wait_for(
                     scraper.scrape(search_query, location, limit, job_type),
-                    timeout=90.0 # Increased from 60s to 90s
+                    timeout=120.0
                 )
                 return scraper.name, listings
-            except asyncio.TimeoutError:
-                logger.warning(f"{scraper.name} timed out after 90s (Attempt {attempt + 1}).")
-                continue
             except Exception as e:
-                logger.error(f"{scraper.name} failed during execution: {str(e)} (Attempt {attempt + 1})")
-                if "403" in str(e) or "blocked" in str(e).lower():
-                    # If blocked, no point in immediate retry without delay
-                    await asyncio.sleep(5 * (attempt + 1))
+                logger.error(f"{scraper.name} attempt {attempt+1} failed: {e}")
                 continue
 
         return scraper.name, []
@@ -69,14 +58,23 @@ class ScraperManager:
         job_type: str = "Full-Time",
         scrapers: Optional[List[BaseScraper]] = None,
     ) -> List[JobListingCreate]:
-        active_scrapers = scrapers or self.default_scrapers
-        logger.info(
-            f"Launching {len(active_scrapers)} active scraper engines concurrently..."
-        )
+
+        # 1. Resolve Fleet via Apify Registry
+        from core.providers.apify.selector import selector as apify_selector
+
+        # Select best 3 Apify actors for this query
+        apify_actors = apify_selector.select_actors_parallel(search_query, count=3)
+        apify_fleet = [ApifyJobScraper(actor) for actor in apify_actors]
+
+        # 2. Combine with Stealth Local Scrapers
+        full_fleet = apify_fleet + self.stealth_scrapers
+        if scrapers: full_fleet = scrapers # Override if provided
+
+        logger.info(f"Launching Scraper Fleet v2.0 ({len(full_fleet)} engines)...")
 
         tasks = [
             self._run_scraper(scraper, search_query, location, limit_per_site, job_type)
-            for scraper in active_scrapers
+            for scraper in full_fleet
         ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -84,12 +82,11 @@ class ScraperManager:
 
         for result in results:
             if isinstance(result, Exception):
-                logger.error(f"Background scraper thread error: {result}")
+                logger.error(f"Fleet engine critical failure: {result}")
                 continue
             scraper_name, listings = result
-            logger.info(
-                f"{scraper_name} finished cleanly. Discovered {len(listings)} records."
-            )
-            all_listings.extend(listings)
+            if listings:
+                logger.info(f"[{scraper_name}] Discovered {len(listings)} records.")
+                all_listings.extend(listings)
 
         return all_listings

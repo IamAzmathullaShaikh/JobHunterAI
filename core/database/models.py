@@ -169,6 +169,17 @@ class JobApplication(Base):
     recruiter_name: Mapped[Optional[str]] = mapped_column(String(255))
     recruiter_email: Mapped[Optional[str]] = mapped_column(String(255))
 
+    # ---- High-Intelligence Tracking Fields ----
+    salary_offered: Mapped[Optional[float]] = mapped_column(Float)
+    interview_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    resume_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True
+    )
+    cover_letter_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("cover_letters.id", ondelete="SET NULL"), nullable=True
+    )
+
     applied_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     date_created: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -579,3 +590,27 @@ class InterviewQuestion(Base):
 
     # Relationships
     session: Mapped["InterviewSession"] = relationship(back_populates="questions")
+
+
+# ----------------------------------------------------------------------
+# Security & Audit
+# ----------------------------------------------------------------------
+
+class AuditLog(Base):
+    """Enterprise-grade audit trail for critical resource mutations."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[UUID]] = mapped_column(String(36), index=True)
+    action: Mapped[str] = mapped_column(String(50), index=True) # CREATE, UPDATE, DELETE, EXPORT
+    resource_type: Mapped[str] = mapped_column(String(50))      # RESUME, APPLICATION, PROFILE
+    resource_id: Mapped[Optional[str]] = mapped_column(String(100))
+
+    payload_snapshot: Mapped[Optional[dict]] = mapped_column(JSON)
+    request_id: Mapped[Optional[str]] = mapped_column(String(50))
+
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45))
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )

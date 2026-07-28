@@ -1,38 +1,35 @@
 import os
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_task_engine
+from core.dependencies import get_resume_service
 from core.schemas.api_payloads import BulletOptimizeRequest, MatchRequest
-from core.task_engine import TaskEngine
+from core.services.resume_service import ResumeService
 
 router = APIRouter(prefix="/api/ats", tags=["ats"])
 
 
 @router.post("/match")
 async def match_ats(
-    request: MatchRequest, engine: TaskEngine = Depends(get_task_engine)
+    request: MatchRequest, service: ResumeService = Depends(get_resume_service)
 ):
-    result = await engine.analyze_ats_fit(request.resume_text, request.job_description)
+    result = await service.analyze_fit(request.resume_text, request.job_description)
     return result
 
 
 @router.post("/optimize-bullet")
 async def optimize_bullet(
-    request: BulletOptimizeRequest, engine: TaskEngine = Depends(get_task_engine)
+    request: BulletOptimizeRequest, service: ResumeService = Depends(get_resume_service)
 ):
-    # This calls the new optimize_bullet logic
-    from core.ai.matcher import JobMatcher
-
-    matcher = JobMatcher()
-    return await matcher.optimize_bullet(request.bullet, request.jd)
+    return await service.tailor_bullets([request.bullet], request.jd)
 
 
 @router.get("/history")
 async def get_ats_history(
     job_id: Optional[int] = None,
-    engine: TaskEngine = Depends(get_task_engine)
+    service: ResumeService = Depends(get_resume_service)
 ):
     from core.database.models import MatchHistory
     from sqlalchemy import select
@@ -40,20 +37,20 @@ async def get_ats_history(
     if job_id:
         stmt = stmt.where(MatchHistory.job_id == job_id)
     stmt = stmt.order_by(MatchHistory.timestamp.desc())
-    result = await engine.db.execute(stmt)
+    result = await service.db.execute(stmt)
     return result.scalars().all()
 
 
 @router.post("/parse-pdf")
 async def parse_pdf(
-    file: UploadFile = File(...), engine: TaskEngine = Depends(get_task_engine)
+    file: UploadFile = File(...), service: ResumeService = Depends(get_resume_service)
 ):
     # Save temp file
     temp_path = f"temp_{file.filename}"
     with open(temp_path, "wb") as f:
         f.write(await file.read())
 
-    result = await engine.parse_resume_pdf(temp_path)
+    result = await service.parse_pdf(temp_path)
 
     # Cleanup
     if os.path.exists(temp_path):

@@ -86,3 +86,29 @@ def configure_logging():
 
 # Initialize on import
 configure_logging()
+
+
+async def record_audit_log(
+    db,
+    action: str,
+    resource_type: str,
+    resource_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    payload: Optional[dict] = None
+):
+    """Asynchronously records an audit trail entry in the database."""
+    from core.database.models import AuditLog
+
+    audit = AuditLog(
+        user_id=user_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        payload_snapshot=payload,
+        request_id=_request_id_ctx_var.get()
+    )
+    db.add(audit)
+    try:
+        await db.commit()
+    except Exception as e:
+        logger.error(f"Failed to save audit log: {e}")

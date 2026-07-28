@@ -6,10 +6,10 @@ import pdfplumber
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 
-from core.ai.resume_parser import ResumeParser
 from core.database.models import UserProfile
-from core.dependencies import get_job_service
+from core.dependencies import get_job_service, get_resume_service
 from core.services.job_service import JobService
+from core.services.resume_service import ResumeService
 from core.schemas.api_payloads import ResumeParseRequest
 
 logger = logging.getLogger(__name__)
@@ -30,9 +30,10 @@ async def get_profile(job_service: JobService = Depends(get_job_service)):
 
 @router.post("/parse")
 async def parse_resume(
-    request: ResumeParseRequest, job_service: JobService = Depends(get_job_service)
+    request: ResumeParseRequest,
+    job_service: JobService = Depends(get_job_service),
+    service: ResumeService = Depends(get_resume_service)
 ):
-    db = job_service.session
     text = request.text
     file_base64 = request.fileBase64
 
@@ -60,33 +61,20 @@ async def parse_resume(
                 status_code=400, detail=f"Failed to process PDF: {str(e)}"
             )
 
-    parser = ResumeParser()
     try:
-        parsed_dto = await parser.parse_resume(text)
-
-        # Save to database
-        db_profile = UserProfile(
-            full_name=parsed_dto.full_name,
-            total_experience_years=parsed_dto.total_experience_years,
-            education=parsed_dto.education,
-            key_skills=parsed_dto.key_skills,
-            recommended_search_queries=parsed_dto.recommended_search_queries,
-            experience_highlights=parsed_dto.experience_highlights,
-            raw_resume_text=text,
-        )
-        db.add(db_profile)
-        await db.commit()
-        await db.refresh(db_profile)
-
+        db_profile = await service.parse_text(text)
         return {"profile": db_profile}
     except Exception as e:
         logger.warning(f"AI parsing failed, using heuristic fallback. Error: {e}")
+        # Manual fallback creation if service fails hard
+        db = job_service.session
         fallback_profile = UserProfile(
             full_name="Candidate",
             total_experience_years=0,
             key_skills=[],
             recommended_search_queries=["Software Engineer"],
             experience_highlights=["System fallback used due to processing error."],
+            raw_resume_text=text
         )
         db.add(fallback_profile)
         await db.commit()

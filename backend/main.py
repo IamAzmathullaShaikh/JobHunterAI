@@ -94,19 +94,32 @@ async def jobhunter_exception_handler(request: Request, exc: JobHunterException)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     err_str = str(exc).lower()
-    logger.critical(f"Unhandled Exception: {str(exc)}", exc_info=True)
+
+    # Extract Request ID for the user to report
+    request_id = request.headers.get("X-Request-ID", "unknown")
+
+    logger.critical(f"Unhandled Exception: [{request_id}] {str(exc)}", exc_info=True)
 
     if "quota" in err_str or "rate limit" in err_str:
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             content={
-                "detail": "Cloud AI quota reached. Falling back to local engine.",
-                "quota_exhausted": True,
+                "ok": False,
+                "error": "QuotaExhausted",
+                "message": "AI compute capacity reached. Falling back to local engine.",
+                "request_id": request_id
             },
         )
+
+    # Standardized Production Error
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Internal Server Error", "error": str(exc)},
+        content={
+            "ok": False,
+            "error": "InternalServerError",
+            "message": "An unexpected system error occurred. Please report the Request ID.",
+            "request_id": request_id
+        },
     )
 
 
@@ -171,7 +184,12 @@ if os.path.exists(frontend_path):
 
     @app.exception_handler(404)
     async def not_found_handler(request: Request, exc: HTTPException):
-        # Support SPA routing by serving index.html on 404
+        # Support SPA routing by serving index.html on 404 for non-API requests
+        if request.url.path.startswith("/api"):
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"detail": "API endpoint not found"}
+            )
         return FileResponse(os.path.join(frontend_path, "index.html"))
 
 

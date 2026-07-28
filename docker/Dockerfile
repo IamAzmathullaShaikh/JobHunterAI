@@ -8,12 +8,17 @@ RUN cd frontend && npm ci
 COPY frontend/ ./frontend/
 RUN cd frontend && npx vite build
 
-# Stage 2: Production runtime with Python & Playwright
+# Stage 2: Production runner with optimized Python
 FROM python:3.11-slim-bookworm AS runner
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Production Optimizations
+ENV PYTHONOPTIMIZE=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Create non-root user for security
 RUN groupadd -r jobhunter && useradd -r -g jobhunter jobhunter
@@ -28,8 +33,6 @@ RUN pip install --no-cache-dir -r requirements.txt \
 # Copy Core and Backend modules
 COPY core ./core
 COPY backend ./backend
-COPY domain ./domain
-COPY application ./application
 
 # Copy static frontend assets
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist

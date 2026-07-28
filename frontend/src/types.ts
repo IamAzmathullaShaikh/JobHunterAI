@@ -57,6 +57,10 @@ export interface JobApplication {
   job_id: number;
   status: ApplicationStatus;
   notes?: string;
+  salary_offered?: number;
+  interview_date?: string;
+  resume_id?: number;
+  cover_letter_id?: number;
   date_created?: string;
   date_updated?: string;
 }

@@ -165,6 +165,7 @@ class SmartLLMClient(LLMClient):
             return await client.chat_completion(target_model, messages)
 
         groq_tier.required_envs = ["GROQ_API_KEY"]
+        groq_tier.model_id = model or settings.GROQ_MODEL
         groq_tier.safe_placeholder = {"error": "Groq tier failed"}
 
         async def gemini_tier(**kwargs):
@@ -175,6 +176,7 @@ class SmartLLMClient(LLMClient):
             return await client.chat_completion(target_model, messages)
 
         gemini_tier.required_envs = ["GEMINI_API_KEY"]
+        gemini_tier.model_id = model or settings.GEMINI_MODEL
         gemini_tier.safe_placeholder = {"error": "Gemini tier failed"}
 
         async def ollama_tier(**kwargs):

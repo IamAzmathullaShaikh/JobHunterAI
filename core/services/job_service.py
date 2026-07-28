@@ -13,8 +13,11 @@ from core.deduplication_engine import deduplication_engine
 from core.enrichment_engine import enrichment_engine
 from core.schemas.job_listing import JobListingCreate
 from core.scrapers.manager import ScraperManager
+from core.ai.smart_router import route as smart_route
 
-logger = logging.getLogger(__name__)
+from core.utils.logging_config import record_audit_log
+
+logger = logging.getLogger("jobhunterai.job_service")
 
 
 class JobService:
@@ -22,6 +25,28 @@ class JobService:
         self.session = session
         self.scraper_manager = ScraperManager(session=session)
         self.matcher = JobMatcher()
+
+    async def search_live(self, query: str, location: str = "Remote", limit: int = 20) -> List[Dict[str, Any]]:
+        """Live multi-platform scraping using JobSpy fleet."""
+        try:
+            from jobspy import scrape_jobs
+            if not scrape_jobs:
+                logger.error("JobSpy not installed.")
+                return []
+
+            # Note: JobSpy is sync, for production we might wrap this in run_in_executor
+            logger.info(f"Searching for '{query}' in '{location}'...")
+            jobs = scrape_jobs(
+                site_name=["linkedin", "indeed", "glassdoor", "google"],
+                search_term=query,
+                location=location,
+                results_wanted=limit,
+                hours_old=72
+            )
+            return jobs.to_dict("records") if not jobs.empty else []
+        except Exception as e:
+            logger.error(f"Live search failed: {e}")
+            return []
 
     def _normalize_str(self, text: str) -> str:
         """Normalizes title/company strings for reliable duplicate detection."""
@@ -78,15 +103,10 @@ class JobService:
         limit: int = 10,
         job_type: str = "Full-Time",
     ) -> List[JobListing]:
-        """Scrapes jobs across all fleet engines, stripping out duplicates and applied jobs."""
-        logger.info(f"Initiating job ingestion for '{search_query}' in '{location}'...")
+        """Scrapes jobs across all fleet engines, with transparent local fallback."""
+        logger.info(f"Initiating Fleet Search for '{search_query}' in '{location}'...")
 
-        # Fetch existing/applied keys from DB
-        existing_ids, existing_title_company = (
-            await self.get_applied_and_existing_keys()
-        )
-
-        # Execute multi-site scraping fleet
+        # 1. Primary Fleet Discovery (Parallel Multi-source)
         raw_listings: List[JobListingCreate] = await self.scraper_manager.run_all(
             search_query=search_query,
             location=location,
@@ -94,8 +114,27 @@ class JobService:
             job_type=job_type,
         )
 
-        # 1. Deduplication
-        # Get all existing jobs for deduplication
+        # 2. Transparent Fallback (JobSpy)
+        if not raw_listings:
+            logger.warning("Fleet search returned 0 results. Triggering local JobSpy fallback...")
+            try:
+                from core.scraper import local_scrape
+                local_res = await local_scrape({"query": search_query, "location": location, "limit": limit})
+                # Convert dict to JobListingCreate objects
+                for item in local_res.get("data", []):
+                    raw_listings.append(JobListingCreate(
+                        job_id_raw=str(item.get("job_id", random.randint(1000, 9999))),
+                        title=item.get("title", "Role"),
+                        company_name=item.get("company_name", "Company"),
+                        location=item.get("location", location),
+                        source="jobspy_fallback",
+                        url=item.get("url", "#"),
+                        description_raw=item.get("description_raw", "")
+                    ))
+            except Exception as e:
+                logger.error(f"Fallback failed: {e}")
+
+        # 3. Deduplication against DB and Batch
         existing_stmt = select(JobListing)
         existing_res = await self.session.execute(existing_stmt)
         all_existing = [j.__dict__ for j in existing_res.scalars().all()]
@@ -153,6 +192,14 @@ class JobService:
             await self.session.commit()
             logger.info(
                 f"Persisted {len(unique_new_models)} deduplicated new job listings to database."
+            )
+
+            # --- Milestone 5: Audit Logging ---
+            await record_audit_log(
+                self.session,
+                action="SCRAPE",
+                resource_type="JOB_LISTING",
+                payload={"count": len(unique_new_models), "query": search_query}
             )
         else:
             logger.info(

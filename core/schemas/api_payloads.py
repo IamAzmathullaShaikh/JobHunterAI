@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -116,6 +117,10 @@ class UpdateApplicationRequest(BaseModel):
     notes: Optional[str] = ""
     priority: Optional[int] = None
     tags: Optional[List[str]] = None
+    salary_offered: Optional[float] = None
+    interview_date: Optional[datetime] = None
+    resume_id: Optional[int] = None
+    cover_letter_id: Optional[int] = None
 
 
 class SavedSearchCreate(BaseModel):

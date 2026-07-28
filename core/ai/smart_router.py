@@ -67,6 +67,37 @@ async def route(*tier_functions: Callable, **kwargs) -> Any:
 
             if result is not None:
                 logger.info(f"Tier {i+1} ({tier_name}) succeeded.")
+
+                # --- Milestone 5: Cost Tracking Integration ---
+                try:
+                    from core.utils.cost_tracker import CostTracker
+                    from core.utils.logging_config import _request_id_ctx_var
+
+                    usage = None
+                    model = getattr(tier_fn, "model_id", "unknown")
+                    provider = tier_name.split("_")[0] # e.g. groq from groq_tier
+
+                    if isinstance(result, dict) and "usage" in result:
+                        usage = result["usage"]
+                    elif hasattr(result, "usage"):
+                        usage = result.usage
+                        if not isinstance(usage, dict):
+                            # Handle OpenAI/Groq usage object
+                            usage = {
+                                "prompt_tokens": getattr(usage, "prompt_tokens", 0),
+                                "completion_tokens": getattr(usage, "completion_tokens", 0)
+                            }
+
+                    if usage:
+                        CostTracker.log_completion(
+                            provider=provider,
+                            model=model,
+                            usage=usage,
+                            request_id=_request_id_ctx_var.get()
+                        )
+                except Exception as ce:
+                    logger.debug(f"Cost tracking failed (non-critical): {ce}")
+
                 return result
 
             logger.warning(f"Tier {i+1} ({tier_name}) returned None. Falling back...")

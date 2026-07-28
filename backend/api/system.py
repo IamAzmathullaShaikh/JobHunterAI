@@ -21,21 +21,25 @@ async def telemetry():
 @router.post("/test-router")
 async def test_router(request: Request):
     """
-    Demonstrates the 3-tier fallback logic.
+    Demonstrates the true 3-tier fallback logic.
     Returns cloud result by default, local fallback when {"force_fail": true} is posted.
     """
     payload = await request.json()
 
-    def primary_fn(data):
-        if data.get("force_fail"):
-            raise RuntimeError("Simulated cloud failure")
-        return {"source": "cloud", "data": "Cloud result"}
+    async def groq_tier(**kwargs):
+        if payload.get("force_fail"):
+            raise RuntimeError("Simulated Tier 1 failure")
+        return {"source": "cloud", "data": "Groq result"}
 
-    # Mark primary_fn with required envs for the router to check
-    primary_fn.required_envs = [["GROQ_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]]
+    groq_tier.required_envs = ["GROQ_API_KEY"]
 
-    def fallback_fn(data):
+    async def gemini_tier(**kwargs):
+        return {"source": "cloud", "data": "Gemini result"}
+
+    gemini_tier.required_envs = ["GEMINI_API_KEY"]
+
+    def local_tier(**kwargs):
         return {"source": "local", "data": "Local fallback result"}
 
-    result = await smart_router(primary_fn, fallback_fn, payload)
+    result = await smart_router(groq_tier, gemini_tier, local_tier)
     return {"ok": True, "result": result}

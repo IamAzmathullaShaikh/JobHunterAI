@@ -5,11 +5,11 @@ from sqlalchemy import select
 
 from core.database.models import (InterviewQuestion, InterviewSession,
                                   JobListing, Resume)
-from core.dependencies import get_job_service, get_task_engine
+from core.dependencies import get_job_service, get_interview_service
 from core.schemas.api_payloads import (AnswerSubmissionRequest,
                                        InterviewSessionCreateRequest)
 from core.services.job_service import JobService
-from core.task_engine import TaskEngine
+from core.services.interview_service import InterviewService
 
 router = APIRouter(prefix="/api/interview", tags=["interview"])
 
@@ -26,7 +26,7 @@ async def list_sessions(job_service: JobService = Depends(get_job_service)):
 async def create_session(
     request: InterviewSessionCreateRequest,
     job_service: JobService = Depends(get_job_service),
-    engine: TaskEngine = Depends(get_task_engine),
+    service: InterviewService = Depends(get_interview_service),
 ):
     db = job_service.session
     resume = await db.get(Resume, request.resume_id)
@@ -54,7 +54,7 @@ async def create_session(
     await db.flush()
 
     # 2. Generate Questions via AI
-    questions_data = await engine.generate_contextual_questions(
+    questions_data = await service.generate_questions(
         resume_content=resume.content,
         job_description=jd,
         difficulty=request.difficulty,
@@ -93,7 +93,7 @@ async def submit_answer(
     question_id: int,
     request: AnswerSubmissionRequest,
     job_service: JobService = Depends(get_job_service),
-    engine: TaskEngine = Depends(get_task_engine),
+    service: InterviewService = Depends(get_interview_service),
 ):
     db = job_service.session
     question = await db.get(InterviewQuestion, question_id)
@@ -101,7 +101,7 @@ async def submit_answer(
         raise HTTPException(status_code=404, detail="Question not found")
 
     # Evaluate via AI
-    evaluation = await engine.evaluate_interview_answer(
+    evaluation = await service.evaluate_answer(
         question=question.question_text,
         answer=request.user_answer
     )

@@ -60,16 +60,29 @@ async def update_application_card(
     job_service: JobService = Depends(get_job_service),
 ):
     db = job_service.session
-    stmt = (
-        update(JobApplication)
-        .where(JobApplication.id == request.application_id)
-        .values(
-            status=request.status,
-            notes=request.notes,
-            date_updated=datetime.now(timezone.utc),
-        )
-    )
-    await db.execute(stmt)
+    application = await db.get(JobApplication, request.application_id)
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Update fields
+    application.status = request.status
+    if request.notes is not None:
+        application.notes = request.notes
+    if request.priority is not None:
+        application.priority = request.priority
+    if request.tags is not None:
+        application.tags = request.tags
+    if request.salary_offered is not None:
+        application.salary_offered = request.salary_offered
+    if request.interview_date is not None:
+        application.interview_date = request.interview_date
+    if request.resume_id is not None:
+        application.resume_id = request.resume_id
+    if request.cover_letter_id is not None:
+        application.cover_letter_id = request.cover_letter_id
+
+    application.date_updated = datetime.now(timezone.utc)
+
     await db.commit()
     return {"ok": True}
 
